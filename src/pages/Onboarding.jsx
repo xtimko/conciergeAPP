@@ -67,7 +67,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 pb-24">
+    <div className="min-h-[100dvh] bg-black px-4 py-8 pb-28">
       <div className="max-w-md mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-lg font-normal tracking-widest uppercase mb-2" style={{ fontFamily: "'Montserrat', sans-serif" }}>

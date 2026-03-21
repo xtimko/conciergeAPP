@@ -5,9 +5,9 @@ import BottomNav from './BottomNav';
 
 export default function ClientLayout({ isAdmin }) {
   return (
-    <div className="min-h-screen bg-background font-inter">
+    <div className="min-h-[100dvh] bg-black font-inter text-foreground selection:bg-white/15">
       <Header isAdmin={isAdmin} />
-      <main className="pb-20 max-w-lg mx-auto">
+      <main className="max-w-lg mx-auto miniapp-safe-main">
         <Outlet />
       </main>
       <BottomNav isAdmin={isAdmin} />

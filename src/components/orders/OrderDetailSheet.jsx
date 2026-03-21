@@ -105,7 +105,10 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
         if (!isOpen) onClose?.();
       }}
     >
-      <SheetContent side="bottom" className="rounded-t-3xl glass border-border/20 max-h-[80vh]">
+      <SheetContent
+        side="bottom"
+        className="rounded-t-[1.75rem] glass border-0 max-h-[80vh] pb-[calc(env(safe-area-inset-bottom,0px)+1.25rem)]"
+      >
         <SheetHeader className="pb-4">
           <SheetTitle className="text-base font-medium tracking-wide">
             {order.item_name}
