@@ -1,0 +1,62 @@
+{
+  "users": [
+    {
+      "id": "Qv2AniJZVutuOgTUiuX5X",
+      "telegram_id": "123",
+      "role": "admin",
+      "first_name": "Timur",
+      "last_name": "",
+      "full_name": "Timur",
+      "email": "",
+      "phone": "",
+      "city": "",
+      "delivery_address": "",
+      "referral_code": "REF-LT1I52BU",
+      "referred_by": "",
+      "bonus_balance": 500,
+      "language": "ru",
+      "theme": "dark",
+      "created_date": "2026-03-21T10:34:43.027Z",
+      "updated_date": "2026-03-21T10:34:43.027Z"
+    },
+    {
+      "id": "vzA332BsIrqrw_fSdhUug",
+      "telegram_id": "dev-user-1",
+      "role": "client",
+      "first_name": "Тимур",
+      "last_name": "",
+      "full_name": "Тимур",
+      "email": "",
+      "phone": "",
+      "city": "",
+      "delivery_address": "",
+      "referral_code": "REF-Q4WPBEDT",
+      "referred_by": "",
+      "bonus_balance": 500,
+      "language": "ru",
+      "theme": "dark",
+      "created_date": "2026-03-21T10:39:11.248Z",
+      "updated_date": "2026-03-21T10:39:11.248Z"
+    },
+    {
+      "id": "Oxsbz6zH6sOxKB6b1jZwV",
+      "telegram_id": "777",
+      "role": "client",
+      "first_name": "Timur",
+      "last_name": "A",
+      "full_name": "Timur A",
+      "email": "",
+      "phone": "",
+      "city": "",
+      "delivery_address": "",
+      "referral_code": "REF-2NW-4V1R",
+      "referred_by": "",
+      "bonus_balance": 500,
+      "language": "ru",
+      "theme": "dark",
+      "created_date": "2026-03-21T10:44:00.176Z",
+      "updated_date": "2026-03-21T10:44:00.176Z"
+    }
+  ],
+  "orders": []
+}

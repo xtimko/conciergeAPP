@@ -1,0 +1,95 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "client_email": {
+      "type": "string",
+      "description": "Email of the client who placed the order"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Client full name for display"
+    },
+    "item_name": {
+      "type": "string",
+      "description": "Product name (e.g. DIOR B32)"
+    },
+    "item_size": {
+      "type": "string",
+      "description": "Size of the item"
+    },
+    "item_category": {
+      "type": "string",
+      "enum": [
+        "footwear",
+        "clothing",
+        "accessories",
+        "bags",
+        "other"
+      ],
+      "description": "Category of the item"
+    },
+    "brand": {
+      "type": "string",
+      "description": "Brand name"
+    },
+    "price": {
+      "type": "number",
+      "description": "Price in currency"
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "RUB",
+        "USD",
+        "EUR"
+      ],
+      "default": "RUB"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed",
+        "sourcing",
+        "shipping",
+        "awaiting_pickup",
+        "delivered",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Current order status"
+    },
+    "estimated_days": {
+      "type": "number",
+      "description": "Estimated delivery days"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Product image URL"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Admin notes"
+    },
+    "referrer_bonus": {
+      "type": "number",
+      "default": 0,
+      "description": "Bonus points for the referrer"
+    },
+    "referral_bonus": {
+      "type": "number",
+      "default": 0,
+      "description": "Bonus points for the referred client"
+    },
+    "referrer_email": {
+      "type": "string",
+      "description": "Email of the referrer if applicable"
+    }
+  },
+  "required": [
+    "client_email",
+    "item_name",
+    "status"
+  ]
+}
