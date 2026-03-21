@@ -57,12 +57,13 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     return () => cancelAnimationFrame(id);
   }, [lightboxUrl]);
 
+  /* После анимации исчезновения (duration-300) снимаем портал */
   useEffect(() => {
     if (!lightboxVisible && lightboxUrl && lightboxUserDismissedRef.current) {
       const t = setTimeout(() => {
         setLightboxUrl(null);
         lightboxUserDismissedRef.current = false;
-      }, 320);
+      }, 300);
       return () => clearTimeout(t);
     }
   }, [lightboxVisible, lightboxUrl]);
@@ -285,28 +286,40 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     </Drawer>
     {lightboxUrl && typeof document !== 'undefined'
       ? createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={lang === 'ru' ? 'Фото' : 'Photo'}
-            className="fixed inset-0 z-[21000] flex items-center justify-center p-4 touch-manipulation"
-            onClick={closeLightbox}
-          >
-            <div
-              aria-hidden
-              className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
+          <div className="fixed inset-0 z-[21000] flex items-center justify-center p-4 touch-manipulation">
+            <button
+              type="button"
+              aria-label={lang === 'ru' ? 'Закрыть фото' : 'Close photo'}
+              className={`absolute inset-0 border-0 p-0 m-0 bg-black transition-opacity duration-300 ease-out cursor-default appearance-none ${
                 lightboxVisible ? 'opacity-85' : 'opacity-0'
               }`}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+              onClick={closeLightbox}
             />
-            <img
-              src={lightboxUrl}
-              alt=""
-              className={`relative z-[1] max-w-full max-h-[85dvh] w-auto object-contain rounded-lg shadow-2xl transition-all duration-300 ease-out ${
-                lightboxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.94]'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-              draggable={false}
-            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={lang === 'ru' ? 'Фото' : 'Photo'}
+              className="relative z-[1] flex flex-col items-center justify-center gap-3 max-w-full max-h-[min(92dvh,100%)] pointer-events-none"
+            >
+              <img
+                src={lightboxUrl}
+                alt=""
+                className={`pointer-events-auto max-w-full max-h-[min(72dvh,78vw)] w-auto object-contain rounded-lg shadow-2xl transition-all duration-300 ease-out ${
+                  lightboxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.94]'
+                }`}
+                draggable={false}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="pointer-events-auto h-8 px-5 text-xs font-medium rounded-full bg-background/95 border border-border/50 shadow-md backdrop-blur-sm"
+                onClick={closeLightbox}
+              >
+                {lang === 'ru' ? 'Закрыть' : 'Close'}
+              </Button>
+            </div>
           </div>,
           document.body
         )

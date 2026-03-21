@@ -35,7 +35,6 @@ export default function AdminFinance() {
       profitDel,
       activeCount: active.length,
       pipeline,
-      potentialProfitActive,
       marginPct,
       cancelledCount: orders.filter((o) => o.status === 'cancelled').length,
     };

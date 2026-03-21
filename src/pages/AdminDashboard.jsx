@@ -42,20 +42,22 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         {loading
           ? [1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="rounded-[1.35rem] border border-border/20 p-4">
-                <Skeleton className="h-5 w-5 mx-auto mb-3 rounded-md" />
-                <Skeleton className="h-7 w-16 mx-auto mb-2" />
-                <Skeleton className="h-3 w-24 mx-auto" />
+              <div key={i} className="rounded-2xl border border-border/20 p-2.5">
+                <Skeleton className="h-4 w-4 mx-auto mb-2 rounded-md" />
+                <Skeleton className="h-6 w-14 mx-auto mb-1" />
+                <Skeleton className="h-2.5 w-20 mx-auto" />
               </div>
             ))
           : stats.map((stat, i) => (
-              <GlassCard key={i} className="text-center">
-                <stat.icon className="w-5 h-5 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xl font-light">{stat.value}</p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">{stat.label}</p>
+              <GlassCard key={i} className="text-center py-2.5 px-2">
+                <stat.icon className="w-4 h-4 mx-auto text-muted-foreground mb-1" strokeWidth={1.5} />
+                <p className="text-base font-light tabular-nums leading-tight">{stat.value}</p>
+                <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5 leading-tight">
+                  {stat.label}
+                </p>
               </GlassCard>
             ))}
       </div>

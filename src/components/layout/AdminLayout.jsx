@@ -28,20 +28,23 @@ export default function AdminLayout() {
               Concierge ID
             </h1>
           </div>
-          <div className="flex flex-wrap gap-1 px-3 pb-3 pt-0.5">
+          <div
+            className="flex flex-nowrap gap-1.5 px-3 pb-3 pt-0.5 overflow-x-auto overscroll-x-contain snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {tabs.map((tab) => {
               const isActive = location.pathname === tab.path;
               return (
                 <Link
                   key={tab.path}
                   to={tab.path}
-                  className={`flex items-center gap-2 px-3.5 py-2 text-[11px] font-medium tracking-wide transition-all rounded-xl ${
+                  className={`flex shrink-0 snap-start items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium tracking-wide transition-all rounded-xl whitespace-nowrap ${
                     isActive
                       ? 'text-foreground bg-white/[0.07] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
                       : 'text-muted-foreground hover:text-foreground/85 hover:bg-white/[0.03]'
                   }`}
                 >
-                  <tab.icon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <tab.icon className="w-3.5 h-3.5 shrink-0" strokeWidth={1.5} />
                   {tab.label}
                 </Link>
               );
