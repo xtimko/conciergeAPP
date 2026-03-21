@@ -85,6 +85,9 @@ export const base44 = {
         body: JSON.stringify(payload)
       });
     },
+    async referralsStats() {
+      return request("/referrals/stats");
+    },
     logout() {
       clearToken();
       window.location.reload();
@@ -144,8 +147,14 @@ export const base44 = {
   },
   integrations: {
     Core: {
-      async UploadFile() {
-        return { file_url: "" };
+      async UploadFile({ file }) {
+        if (!file) return { file_url: "" };
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ file_url: reader.result });
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
       }
     }
   }

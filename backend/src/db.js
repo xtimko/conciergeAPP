@@ -53,6 +53,7 @@ export function createUserFromTelegram(telegramUser) {
     courier_comment: "",
     referral_code: `REF-${nanoid(8).toUpperCase()}`,
     referred_by: "",
+    telegram_username: "",
     bonus_balance: 500,
     language: "ru",
     theme: "dark",

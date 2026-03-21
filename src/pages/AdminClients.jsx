@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, Pencil, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
+import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [showOrders, setShowOrders] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: clients = [] } = useQuery({
@@ -23,14 +25,18 @@ export default function AdminClients() {
 
   const { data: clientOrders = [] } = useQuery({
     queryKey: ['clientOrders', selectedClient?.email],
-    queryFn: () => base44.entities.Order.filter({ client_email: selectedClient.email }, '-created_date'),
+    queryFn: () => base44.entities.Order.filter({ client_email: selectedClient.email }),
     enabled: !!selectedClient?.email && showOrders,
   });
 
-  const filtered = clients.filter(c => {
+  const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
-    return !q || [c.full_name, c.first_name, c.last_name, c.email, c.phone, c.city, c.referral_code]
-      .some(f => f?.toLowerCase().includes(q));
+    return (
+      !q ||
+      [c.full_name, c.first_name, c.last_name, c.email, c.phone, c.city, c.referral_code].some((f) =>
+        f?.toLowerCase().includes(q),
+      )
+    );
   });
 
   const openEdit = (client) => {
@@ -68,13 +74,13 @@ export default function AdminClients() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients by name, email, phone, city..."
+          placeholder="Поиск: имя, email, телефон, город…"
           className="pl-10 bg-transparent glass border-border/30"
         />
       </div>
 
       <div className="space-y-2">
-        {filtered.map(client => (
+        {filtered.map((client) => (
           <GlassCard key={client.id} className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
@@ -101,7 +107,6 @@ export default function AdminClients() {
         ))}
       </div>
 
-      {/* Edit Client Dialog */}
       <Dialog open={!!selectedClient && !showOrders} onOpenChange={() => setSelectedClient(null)}>
         <DialogContent className="glass border-border/20 max-w-md">
           <DialogHeader>
@@ -110,62 +115,118 @@ export default function AdminClients() {
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div>
               <Label className="text-xs">First Name</Label>
-              <Input value={editForm.first_name} onChange={(e) => setEditForm({...editForm, first_name: e.target.value})} className="mt-1 bg-transparent border-border/30" />
+              <Input
+                value={editForm.first_name}
+                onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
             <div>
               <Label className="text-xs">Last Name</Label>
-              <Input value={editForm.last_name} onChange={(e) => setEditForm({...editForm, last_name: e.target.value})} className="mt-1 bg-transparent border-border/30" />
+              <Input
+                value={editForm.last_name}
+                onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
             <div>
               <Label className="text-xs">Phone</Label>
-              <Input value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="mt-1 bg-transparent border-border/30" />
+              <Input
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
             <div>
               <Label className="text-xs">City</Label>
-              <Input value={editForm.city} onChange={(e) => setEditForm({...editForm, city: e.target.value})} className="mt-1 bg-transparent border-border/30" />
+              <Input
+                value={editForm.city}
+                onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
             <div>
               <Label className="text-xs">Bonus Balance</Label>
-              <Input type="number" value={editForm.bonus_balance} onChange={(e) => setEditForm({...editForm, bonus_balance: e.target.value})} className="mt-1 bg-transparent border-border/30" />
+              <Input
+                type="number"
+                value={editForm.bonus_balance}
+                onChange={(e) => setEditForm({ ...editForm, bonus_balance: e.target.value })}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
             <div>
               <Label className="text-xs">Referral Code</Label>
-              <Input value={editForm.referral_code} onChange={(e) => setEditForm({...editForm, referral_code: e.target.value})} className="mt-1 bg-transparent border-border/30" />
+              <Input
+                value={editForm.referral_code}
+                onChange={(e) => setEditForm({ ...editForm, referral_code: e.target.value })}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setSelectedClient(null)} className="glass border-border/30">Cancel</Button>
-            <Button onClick={handleSave} className="bg-foreground text-background hover:bg-foreground/90">Save</Button>
+            <Button variant="outline" onClick={() => setSelectedClient(null)} className="glass border-border/30">
+              Cancel
+            </Button>
+            <Button onClick={handleSave} className="bg-foreground text-background hover:bg-foreground/90">
+              Save
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Client Orders Dialog */}
-      <Dialog open={!!selectedClient && showOrders} onOpenChange={() => { setSelectedClient(null); setShowOrders(false); }}>
+      <Dialog
+        open={!!selectedClient && showOrders}
+        onOpenChange={() => {
+          setSelectedClient(null);
+          setShowOrders(false);
+        }}
+      >
         <DialogContent className="glass border-border/20 max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
-              Orders — {selectedClient?.first_name || selectedClient?.full_name || selectedClient?.email}
+              Заказы — {selectedClient?.first_name || selectedClient?.full_name || selectedClient?.email}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-4">
             {clientOrders.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No orders</p>
+              <p className="text-sm text-muted-foreground text-center py-4">Нет заказов</p>
             ) : (
-              clientOrders.map(order => (
+              clientOrders.map((order) => (
                 <GlassCard key={order.id} className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-light">{order.item_name}</p>
-                      <p className="text-xs text-muted-foreground">{order.status} • {order.price ? `${order.price.toLocaleString()} ${order.currency}` : ''}</p>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-3 text-left"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    {order.image_url ? (
+                      <img
+                        src={order.image_url}
+                        alt=""
+                        className="w-14 h-14 rounded-lg object-cover shrink-0 bg-muted/30"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg shrink-0 bg-muted/30" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-light truncate">{order.item_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.status} • {order.price ? `${order.price.toLocaleString()} ${order.currency}` : ''}
+                      </p>
                     </div>
-                  </div>
+                  </button>
                 </GlassCard>
               ))
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      <OrderDetailSheet
+        order={selectedOrder}
+        open={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        readOnly
+      />
     </div>
   );
 }

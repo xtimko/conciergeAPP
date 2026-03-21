@@ -38,7 +38,13 @@ export default function ImageUploadField({ value, onChange }) {
         >
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
         </Button>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFile}
+        />
       </div>
       {value && (
         <div className="relative mt-2 rounded-xl overflow-hidden w-full h-36">

@@ -17,11 +17,15 @@ export default function Referral() {
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: referrals = [] } = useQuery({
-    queryKey: ['referrals', user?.email],
-    queryFn: () => base44.entities.User.filter({ referred_by: user.email }),
+  const { data: statsData } = useQuery({
+    queryKey: ['referralsStats'],
+    queryFn: () => base44.auth.referralsStats(),
     enabled: !!user?.email,
   });
+
+  const referrals = statsData?.referrals || [];
+
+  const totalFromFriends = referrals.reduce((s, r) => s + Number(r.bonus_from_friend || 0), 0);
 
   const code = user?.referral_code || '';
 
@@ -71,11 +75,11 @@ export default function Referral() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Gift className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-wide">{t('totalBonusEarned', lang)}</span>
+            <span className="text-xs uppercase tracking-wide">
+              {lang === 'ru' ? 'Бонусы от друзей' : 'Bonuses from friends'}
+            </span>
           </div>
-          <span className="text-lg font-light">
-            {(user.bonus_balance || 0).toLocaleString('ru-RU')}
-          </span>
+          <span className="text-lg font-light">{totalFromFriends.toLocaleString('ru-RU')}</span>
         </div>
       </GlassCard>
 
@@ -85,9 +89,15 @@ export default function Referral() {
             {t('referralHistory', lang)}
           </p>
           {referrals.map((ref) => (
-            <div key={ref.id} className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
-              <span className="text-sm font-light">
+            <div
+              key={ref.id}
+              className="flex items-center justify-between py-2 border-b border-border/10 last:border-0 gap-2"
+            >
+              <span className="text-sm font-light truncate">
                 {ref.first_name || ref.full_name || ref.email}
+              </span>
+              <span className="text-sm font-light text-muted-foreground shrink-0">
+                +{Number(ref.bonus_from_friend || 0).toLocaleString('ru-RU')}
               </span>
             </div>
           ))}

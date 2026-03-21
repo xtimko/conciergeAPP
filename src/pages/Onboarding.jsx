@@ -75,8 +75,8 @@ export default function Onboarding() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {lang === 'ru'
-              ? 'Заполните данные для доставки и сервиса'
-              : 'Fill in your details for delivery and service'}
+              ? 'Город и телефон обязательны; подробный адрес можно указать позже в профиле'
+              : 'City and phone are required; you can add the full address later in your profile'}
           </p>
         </div>
 
@@ -132,9 +132,10 @@ export default function Onboarding() {
               />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Улица' : 'Street'} *</Label>
+              <Label className="text-xs text-muted-foreground">
+                {lang === 'ru' ? 'Улица (можно позже в профиле)' : 'Street (optional — add in profile)'}
+              </Label>
               <Input
-                required
                 value={form.address_street}
                 onChange={(e) => update('address_street', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
@@ -142,9 +143,10 @@ export default function Onboarding() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Дом' : 'Building'} *</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {lang === 'ru' ? 'Дом' : 'Building'}
+                </Label>
                 <Input
-                  required
                   value={form.address_house}
                   onChange={(e) => update('address_house', e.target.value)}
                   className="mt-1 bg-transparent border-border/30"

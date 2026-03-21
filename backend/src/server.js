@@ -61,12 +61,20 @@ app.post("/api/auth/telegram", (req, res) => {
   let user = db.users.find((u) => u.telegram_id === String(telegramUser.id));
   if (!user) {
     user = createUserFromTelegram(telegramUser);
+    user.telegram_username = telegramUser.username || "";
     if (db.users.length === 0) {
       user.role = "admin";
       user.profile_completed = true;
     }
     db.users.push(user);
     writeDb(db);
+  } else if (telegramUser.username && user.telegram_username !== telegramUser.username) {
+    user.telegram_username = telegramUser.username;
+    const idx = db.users.findIndex((u) => u.id === user.id);
+    if (idx >= 0) {
+      db.users[idx] = { ...db.users[idx], telegram_username: telegramUser.username };
+      writeDb(db);
+    }
   }
 
   const token = signToken(user);
@@ -149,8 +157,8 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
   if (!phone || phone.length < 12) {
     return res.status(400).json({ message: "Укажите корректный телефон в формате +7" });
   }
-  if (!city || !address_street || !address_house) {
-    return res.status(400).json({ message: "Укажите город и адрес (улица, дом)" });
+  if (!city) {
+    return res.status(400).json({ message: "Укажите город" });
   }
 
   const email = `tg_${u.telegram_id}@concierge-app.local`;
@@ -237,29 +245,59 @@ app.get("/api/orders", authRequired, (req, res) => {
   res.json(mine);
 });
 
+/** Начисляет бонусы по заказу один раз при статусе delivered. */
+function applyOrderBonusesIfNeeded(db, order) {
+  if (order.bonuses_applied || order.status !== "delivered") return;
+  const idx = db.orders.findIndex((o) => o.id === order.id);
+  if (idx < 0) return;
+
+  const refBonus = Number(order.referrer_bonus || 0);
+  const referralBonus = Number(order.referral_bonus || 0);
+  const mode = order.client_bonus_mode === "subtract" ? -1 : 1;
+  const clientDelta = referralBonus * mode;
+
+  if (clientDelta !== 0 && order.client_email) {
+    const uidx = db.users.findIndex((u) => u.email === order.client_email);
+    if (uidx >= 0) {
+      db.users[uidx].bonus_balance = Number(db.users[uidx].bonus_balance || 0) + clientDelta;
+    }
+  }
+  if (refBonus > 0 && order.referrer_email) {
+    const ridx = db.users.findIndex((u) => u.email === order.referrer_email);
+    if (ridx >= 0) {
+      db.users[ridx].bonus_balance = Number(db.users[ridx].bonus_balance || 0) + refBonus;
+    }
+  }
+  db.orders[idx].bonuses_applied = true;
+}
+
 app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   const db = readDb();
+  const body = req.body || {};
   const order = {
     id: nanoid(),
-    client_email: req.body.client_email || "",
-    client_name: req.body.client_name || "",
-    item_name: req.body.item_name || "",
-    item_size: req.body.item_size || "",
-    item_category: req.body.item_category || "other",
-    brand: req.body.brand || "",
-    price: Number(req.body.price || 0),
-    currency: req.body.currency || "RUB",
-    status: req.body.status || "pending",
-    estimated_days: Number(req.body.estimated_days || 0),
-    image_url: req.body.image_url || "",
-    notes: req.body.notes || "",
-    referrer_bonus: Number(req.body.referrer_bonus || 0),
-    referral_bonus: Number(req.body.referral_bonus || 0),
-    referrer_email: req.body.referrer_email || "",
+    client_email: body.client_email || "",
+    client_name: body.client_name || "",
+    item_name: body.item_name || "",
+    item_size: body.item_size || "",
+    item_category: body.item_category || "other",
+    brand: body.brand || "",
+    price: Number(body.price || 0),
+    currency: body.currency || "RUB",
+    status: body.status || "pending",
+    estimated_days: Number(body.estimated_days || 0),
+    image_url: body.image_url || "",
+    notes: body.notes || "",
+    referrer_bonus: Number(body.referrer_bonus || 0),
+    referral_bonus: Number(body.referral_bonus || 0),
+    referrer_email: body.referrer_email || "",
+    client_bonus_mode: body.client_bonus_mode === "subtract" ? "subtract" : "add",
+    bonuses_applied: false,
     created_date: nowIso(),
     updated_date: nowIso()
   };
   db.orders.push(order);
+  applyOrderBonusesIfNeeded(db, order);
   writeDb(db);
   res.status(201).json(order);
 });
@@ -269,20 +307,34 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   const idx = db.orders.findIndex((o) => o.id === req.params.id);
   if (idx < 0) return res.status(404).json({ message: "Order not found" });
   const before = db.orders[idx];
-  db.orders[idx] = { ...before, ...req.body, updated_date: nowIso() };
-
-  // Bonus application on order update.
-  if (Number(req.body.referral_bonus || 0) > 0) {
-    const uidx = db.users.findIndex((u) => u.email === db.orders[idx].client_email);
-    if (uidx >= 0) db.users[uidx].bonus_balance = Number(db.users[uidx].bonus_balance || 0) + Number(req.body.referral_bonus);
+  const body = { ...(req.body || {}) };
+  delete body.bonuses_applied;
+  if (body.client_bonus_mode !== undefined) {
+    body.client_bonus_mode = body.client_bonus_mode === "subtract" ? "subtract" : "add";
   }
-  if (Number(req.body.referrer_bonus || 0) > 0 && db.orders[idx].referrer_email) {
-    const ridx = db.users.findIndex((u) => u.email === db.orders[idx].referrer_email);
-    if (ridx >= 0) db.users[ridx].bonus_balance = Number(db.users[ridx].bonus_balance || 0) + Number(req.body.referrer_bonus);
-  }
-
+  db.orders[idx] = { ...before, ...body, updated_date: nowIso() };
+  applyOrderBonusesIfNeeded(db, db.orders[idx]);
   writeDb(db);
   res.json(db.orders[idx]);
+});
+
+app.get("/api/referrals/stats", authRequired, (req, res) => {
+  const db = readDb();
+  const me = db.users.find((u) => u.id === req.auth.userId);
+  if (!me) return res.status(404).json({ message: "User not found" });
+  const invites = db.users.filter((u) => u.referred_by === me.email);
+  const referrals = invites.map((inv) => {
+    const totalFromFriend = db.orders
+      .filter(
+        (o) =>
+          o.client_email === inv.email &&
+          o.referrer_email === me.email &&
+          o.status === "delivered"
+      )
+      .reduce((s, o) => s + Number(o.referrer_bonus || 0), 0);
+    return { ...inv, bonus_from_friend: totalFromFriend };
+  });
+  res.json({ referrals });
 });
 
 function migrateDbOnce() {
@@ -295,6 +347,20 @@ function migrateDbOnce() {
     }
     if (!u.email && u.telegram_id) {
       u.email = `tg_${u.telegram_id}@concierge-app.local`;
+      changed = true;
+    }
+    if (u.telegram_username === undefined) {
+      u.telegram_username = "";
+      changed = true;
+    }
+  }
+  for (const o of db.orders) {
+    if (o.bonuses_applied === undefined) {
+      o.bonuses_applied = false;
+      changed = true;
+    }
+    if (o.client_bonus_mode === undefined) {
+      o.client_bonus_mode = "add";
       changed = true;
     }
   }

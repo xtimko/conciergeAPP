@@ -7,6 +7,7 @@ import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { User } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -29,6 +30,12 @@ export default function Profile() {
         last_name: user.last_name || '',
         phone: user.phone || '',
         city: user.city || '',
+        address_street: user.address_street || '',
+        address_house: user.address_house || '',
+        address_apartment: user.address_apartment || '',
+        address_floor: user.address_floor || '',
+        intercom: user.intercom || '',
+        courier_comment: user.courier_comment || '',
         delivery_address: user.delivery_address || '',
       });
     }
@@ -42,6 +49,48 @@ export default function Profile() {
   };
 
   if (!user) return null;
+
+  const fields = [
+    { key: 'first_name', label: t('firstName', lang), type: 'input' },
+    { key: 'last_name', label: t('lastName', lang), type: 'input' },
+    { key: 'phone', label: t('phone', lang), type: 'input' },
+    { key: 'city', label: t('city', lang), type: 'input' },
+    {
+      key: 'address_street',
+      label: lang === 'ru' ? 'Улица' : 'Street',
+      type: 'input',
+    },
+    {
+      key: 'address_house',
+      label: lang === 'ru' ? 'Дом' : 'Building',
+      type: 'input',
+    },
+    {
+      key: 'address_apartment',
+      label: lang === 'ru' ? 'Квартира' : 'Apartment',
+      type: 'input',
+    },
+    {
+      key: 'address_floor',
+      label: lang === 'ru' ? 'Этаж' : 'Floor',
+      type: 'input',
+    },
+    {
+      key: 'intercom',
+      label: lang === 'ru' ? 'Домофон' : 'Intercom',
+      type: 'input',
+    },
+    {
+      key: 'courier_comment',
+      label: lang === 'ru' ? 'Комментарий курьеру' : 'Courier note',
+      type: 'textarea',
+    },
+    {
+      key: 'delivery_address',
+      label: lang === 'ru' ? 'Адрес одной строкой (дополнительно)' : 'Full address (optional)',
+      type: 'textarea',
+    },
+  ];
 
   return (
     <div className="px-4 pt-6 space-y-5">
@@ -60,25 +109,25 @@ export default function Profile() {
         </div>
 
         <div className="space-y-4">
-          {[
-            { key: 'first_name', label: t('firstName', lang) },
-            { key: 'last_name', label: t('lastName', lang) },
-            { key: 'phone', label: t('phone', lang) },
-            { key: 'city', label: t('city', lang) },
-            { key: 'delivery_address', label: lang === 'ru' ? 'Адрес доставки' : 'Delivery Address' },
-          ].map((field) => (
+          {fields.map((field) => (
             <div key={field.key}>
               <Label className="text-xs text-muted-foreground">{field.label}</Label>
               {editing ? (
-                <Input
-                  value={form[field.key] || ''}
-                  onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                  className="mt-1 bg-transparent border-border/30"
-                />
+                field.type === 'textarea' ? (
+                  <Textarea
+                    value={form[field.key] || ''}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                    className="mt-1 min-h-[72px] bg-transparent border-border/30 resize-none"
+                  />
+                ) : (
+                  <Input
+                    value={form[field.key] || ''}
+                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                    className="mt-1 bg-transparent border-border/30"
+                  />
+                )
               ) : (
-                <p className="text-sm font-light mt-1">
-                  {user[field.key] || '—'}
-                </p>
+                <p className="text-sm font-light mt-1">{user[field.key] || '—'}</p>
               )}
             </div>
           ))}
