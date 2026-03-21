@@ -79,6 +79,12 @@ export const base44 = {
         body: JSON.stringify(payload)
       });
     },
+    async completeOnboarding(payload) {
+      return request("/users/complete-onboarding", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    },
     logout() {
       clearToken();
       window.location.reload();

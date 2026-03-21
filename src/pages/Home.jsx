@@ -22,9 +22,9 @@ export default function Home() {
     queryFn: () => base44.auth.me(),
   });
 
-  // Generate referral code + give 500 welcome bonus on first visit
+  // После онбординга: реферальный код + приветственные баллы
   useEffect(() => {
-    if (user && !user.referral_code) {
+    if (user?.profile_completed && !user.referral_code) {
       base44.auth.updateMe({
         referral_code: generateCode(),
         bonus_balance: (user.bonus_balance || 0) + 500,
@@ -32,7 +32,7 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ['me'] });
       });
     }
-  }, [user]);
+  }, [user, queryClient]);
 
   const { data: orders = [] } = useQuery({
     queryKey: ['myOrders', user?.email],

@@ -45,11 +45,18 @@ export function createUserFromTelegram(telegramUser) {
     phone: "",
     city: "",
     delivery_address: "",
+    address_street: "",
+    address_house: "",
+    address_apartment: "",
+    address_floor: "",
+    intercom: "",
+    courier_comment: "",
     referral_code: `REF-${nanoid(8).toUpperCase()}`,
     referred_by: "",
     bonus_balance: 500,
     language: "ru",
     theme: "dark",
+    profile_completed: false,
     created_date: nowIso(),
     updated_date: nowIso()
   };

@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -18,11 +18,39 @@ import Home from '@/pages/Home';
 import Profile from '@/pages/Profile';
 import Referral from '@/pages/Referral';
 import Settings from '@/pages/Settings';
+import Onboarding from '@/pages/Onboarding';
 
 // Admin pages
 import AdminDashboard from '@/pages/AdminDashboard';
 import AdminOrders from '@/pages/AdminOrders';
 import AdminClients from '@/pages/AdminClients';
+
+function ProfileGate({ children }) {
+  const location = useLocation();
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="w-6 h-6 border-2 border-muted-foreground border-t-foreground rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return children;
+
+  const needOnboarding = user.role !== 'admin' && user.profile_completed === false;
+  if (needOnboarding && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (user.profile_completed && location.pathname === '/onboarding') {
+    return <Navigate to="/Home" replace />;
+  }
+  return children;
+}
 
 const AppRoutes = () => {
   const { data: user } = useQuery({
@@ -34,6 +62,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
+      <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/" element={<Navigate to="/Home" replace />} />
       <Route element={<ClientLayout isAdmin={isAdmin} />}>
         <Route path="/Home" element={<Home />} />
@@ -99,7 +128,9 @@ const AuthenticatedApp = () => {
 
   return (
     <ThemeInitializer>
-      <AppRoutes />
+      <ProfileGate>
+        <AppRoutes />
+      </ProfileGate>
     </ThemeInitializer>
   );
 };
