@@ -27,6 +27,7 @@ export default function Onboarding() {
     address_house: '',
     address_apartment: '',
     address_floor: '',
+    address_entrance: '',
     intercom: '',
     courier_comment: '',
     referral_code: ''
@@ -58,6 +59,7 @@ export default function Onboarding() {
         address_house: form.address_house.trim(),
         address_apartment: form.address_apartment.trim(),
         address_floor: form.address_floor.trim(),
+        address_entrance: form.address_entrance.trim(),
         intercom: form.intercom.trim(),
         courier_comment: form.courier_comment.trim(),
         referral_code: form.referral_code.trim()
@@ -178,13 +180,21 @@ export default function Onboarding() {
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Домофон' : 'Intercom'}</Label>
+                <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Подъезд' : 'Entrance'}</Label>
                 <Input
-                  value={form.intercom}
-                  onChange={(e) => update('intercom', e.target.value)}
+                  value={form.address_entrance}
+                  onChange={(e) => update('address_entrance', e.target.value)}
                   className="mt-1 bg-transparent border-border/30"
                 />
               </div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Домофон' : 'Intercom'}</Label>
+              <Input
+                value={form.intercom}
+                onChange={(e) => update('intercom', e.target.value)}
+                className="mt-1 bg-transparent border-border/30"
+              />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">
@@ -194,7 +204,7 @@ export default function Onboarding() {
                 value={form.courier_comment}
                 onChange={(e) => update('courier_comment', e.target.value)}
                 className="mt-1 min-h-[80px] bg-transparent border-border/30 resize-none"
-                placeholder={lang === 'ru' ? 'Подъезд, ориентир…' : 'Entrance, landmarks…'}
+                placeholder={lang === 'ru' ? 'Ориентир для курьера…' : 'Landmarks for courier…'}
               />
             </div>
           </GlassCard>

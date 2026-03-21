@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
@@ -23,9 +23,31 @@ export default function Referral() {
     enabled: !!user?.email,
   });
 
+  const { data: myOrders = [] } = useQuery({
+    queryKey: ['myOrders', user?.email],
+    queryFn: () => base44.entities.Order.filter({ client_email: user.email }),
+    enabled: !!user?.email,
+  });
+
   const referrals = statsData?.referrals || [];
 
   const totalFromFriends = referrals.reduce((s, r) => s + Number(r.bonus_from_friend || 0), 0);
+
+  const orderBonusRows = useMemo(() => {
+    return myOrders
+      .filter(
+        (o) =>
+          o.status === 'delivered' &&
+          o.bonuses_applied &&
+          Number(o.referral_bonus || 0) > 0,
+      )
+      .map((o) => {
+        const raw = Number(o.referral_bonus || 0);
+        const signed = o.client_bonus_mode === 'subtract' ? -raw : raw;
+        return { o, signed };
+      })
+      .sort((a, b) => new Date(b.o.created_date || 0) - new Date(a.o.created_date || 0));
+  }, [myOrders]);
 
   const code = user?.referral_code || '';
 
@@ -64,6 +86,64 @@ export default function Referral() {
       </GlassCard>
 
       <GlassCard>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3">
+          {t('bonusFromOrders', lang)}
+        </p>
+        {orderBonusRows.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-2">{t('noBonusHistory', lang)}</p>
+        ) : (
+          <div className="space-y-2">
+            {orderBonusRows.map(({ o, signed }) => (
+              <div
+                key={o.id}
+                className="flex items-center justify-between gap-2 py-2 border-b border-border/10 last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-light truncate">{o.item_name || '—'}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono truncate">{o.id}</p>
+                </div>
+                <span
+                  className={`text-sm font-light tabular-nums shrink-0 ${
+                    signed < 0 ? 'text-destructive' : 'text-foreground'
+                  }`}
+                >
+                  {signed > 0 ? '+' : ''}
+                  {signed.toLocaleString('ru-RU')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </GlassCard>
+
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 px-0.5">
+          {t('bonusFromFriendsStrip', lang)}
+        </p>
+        <div className="w-[calc(100%+1rem)] -mx-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 px-2 min-w-min">
+            {referrals.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">{t('noReferrals', lang)}</p>
+            ) : (
+              referrals.map((ref) => (
+                <div
+                  key={ref.id}
+                  className="w-[132px] shrink-0 rounded-2xl border border-border/25 bg-muted/15 px-3 py-2.5"
+                >
+                  <p className="text-[11px] font-light truncate leading-tight">
+                    {ref.first_name || ref.full_name || ref.email}
+                  </p>
+                  <p className="text-xs text-muted-foreground tabular-nums mt-1">
+                    +{Number(ref.bonus_from_friend || 0).toLocaleString('ru-RU')}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <GlassCard>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="w-4 h-4" />
@@ -82,27 +162,6 @@ export default function Referral() {
           <span className="text-lg font-light">{totalFromFriends.toLocaleString('ru-RU')}</span>
         </div>
       </GlassCard>
-
-      {referrals.length > 0 && (
-        <GlassCard>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
-            {t('referralHistory', lang)}
-          </p>
-          {referrals.map((ref) => (
-            <div
-              key={ref.id}
-              className="flex items-center justify-between py-2 border-b border-border/10 last:border-0 gap-2"
-            >
-              <span className="text-sm font-light truncate">
-                {ref.first_name || ref.full_name || ref.email}
-              </span>
-              <span className="text-sm font-light text-muted-foreground shrink-0">
-                +{Number(ref.bonus_from_friend || 0).toLocaleString('ru-RU')}
-              </span>
-            </div>
-          ))}
-        </GlassCard>
-      )}
     </div>
   );
 }

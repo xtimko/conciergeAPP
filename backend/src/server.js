@@ -99,6 +99,7 @@ const USER_ME_ALLOWED = new Set([
   "address_house",
   "address_apartment",
   "address_floor",
+  "address_entrance",
   "intercom",
   "courier_comment",
   "language",
@@ -124,6 +125,7 @@ function buildDeliveryAddress(p) {
     p.address_house && `д. ${p.address_house}`,
     p.address_apartment && `кв. ${p.address_apartment}`,
     p.address_floor && `эт. ${p.address_floor}`,
+    p.address_entrance && `подъезд ${p.address_entrance}`,
     p.intercom && `домофон ${p.intercom}`
   ].filter(Boolean);
   let s = parts.join(", ");
@@ -148,6 +150,7 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
   const address_house = String(req.body.address_house || "").trim();
   const address_apartment = String(req.body.address_apartment || "").trim();
   const address_floor = String(req.body.address_floor || "").trim();
+  const address_entrance = String(req.body.address_entrance || "").trim();
   const intercom = String(req.body.intercom || "").trim();
   const courier_comment = String(req.body.courier_comment || "").trim();
   const referral_code_input = String(req.body.referral_code || "").trim().replace(/\s+/g, "").toUpperCase();
@@ -184,6 +187,7 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
     address_house,
     address_apartment,
     address_floor,
+    address_entrance,
     intercom,
     courier_comment
   });
@@ -200,6 +204,7 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
     address_house,
     address_apartment,
     address_floor,
+    address_entrance,
     intercom,
     courier_comment,
     delivery_address,
@@ -211,6 +216,17 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
   res.json(db.users[idx]);
 });
 
+const ADDRESS_FIELDS = new Set([
+  "city",
+  "address_street",
+  "address_house",
+  "address_apartment",
+  "address_floor",
+  "address_entrance",
+  "intercom",
+  "courier_comment"
+]);
+
 app.patch("/api/users/me", authRequired, (req, res) => {
   const db = readDb();
   const idx = db.users.findIndex((u) => u.id === req.auth.userId);
@@ -219,7 +235,11 @@ app.patch("/api/users/me", authRequired, (req, res) => {
   for (const k of Object.keys(req.body || {})) {
     if (USER_ME_ALLOWED.has(k)) patch[k] = req.body[k];
   }
-  db.users[idx] = { ...db.users[idx], ...patch, updated_date: nowIso() };
+  let merged = { ...db.users[idx], ...patch, updated_date: nowIso() };
+  if ([...ADDRESS_FIELDS].some((k) => patch[k] !== undefined)) {
+    merged.delivery_address = buildDeliveryAddress(merged);
+  }
+  db.users[idx] = merged;
   writeDb(db);
   res.json(db.users[idx]);
 });
@@ -363,6 +383,10 @@ function migrateDbOnce() {
     }
     if (u.telegram_username === undefined) {
       u.telegram_username = "";
+      changed = true;
+    }
+    if (u.address_entrance === undefined) {
+      u.address_entrance = "";
       changed = true;
     }
   }

@@ -87,6 +87,8 @@ export default function AdminOrders() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkApplyStatus, setBulkApplyStatus] = useState('pending');
   const [copiedId, setCopiedId] = useState(null);
+  /** created_desc | created_asc | updated_desc */
+  const [sortMode, setSortMode] = useState('created_desc');
   const queryClient = useQueryClient();
 
   const { data: orders = [], isPending: ordersLoading } = useQuery({
@@ -130,6 +132,19 @@ export default function AdminOrders() {
     });
   }, [orders, search, orderFilter, statusFilter, dateFrom, dateTo]);
 
+  const displayedOrders = useMemo(() => {
+    const arr = [...filtered];
+    const t = (iso) => new Date(iso || 0).getTime();
+    const byCreatedDesc = (a, b) => t(b.created_date) - t(a.created_date);
+    const byCreatedAsc = (a, b) => t(a.created_date) - t(b.created_date);
+    const byUpdatedDesc = (a, b) =>
+      t(b.updated_date || b.created_date) - t(a.updated_date || a.created_date);
+    if (sortMode === 'created_desc') arr.sort(byCreatedDesc);
+    else if (sortMode === 'created_asc') arr.sort(byCreatedAsc);
+    else if (sortMode === 'updated_desc') arr.sort(byUpdatedDesc);
+    return arr;
+  }, [filtered, sortMode]);
+
   useEffect(() => {
     if (!selectionMode) setSelectedIds(new Set());
   }, [selectionMode]);
@@ -145,9 +160,9 @@ export default function AdminOrders() {
   }, []);
 
   const selectAllInView = useCallback(() => {
-    setSelectedIds(new Set(filtered.map((o) => o.id)));
+    setSelectedIds(new Set(displayedOrders.map((o) => o.id)));
     hapticSelection();
-  }, [filtered]);
+  }, [displayedOrders]);
 
   const copyOrderId = async (id, e) => {
     e?.stopPropagation();
@@ -163,21 +178,30 @@ export default function AdminOrders() {
     }
   };
 
-  const handleExportCsv = () => {
-    if (!filtered.length) {
+  const handleExportCsv = async () => {
+    if (!displayedOrders.length) {
       toast.error('Нет заказов для экспорта');
       return;
     }
-    downloadOrdersCsv(
-      filtered,
-      `orders-${new Date().toISOString().slice(0, 10)}.csv`,
-    );
-    hapticSuccess();
-    toast.success('CSV сохранён');
+    const fn = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    const result = await downloadOrdersCsv(displayedOrders, fn);
+    if (result === 'share') {
+      hapticSuccess();
+      toast.success('Откройте меню «Поделиться» и сохраните файл');
+    } else if (result === 'download') {
+      hapticSuccess();
+      toast.success('Файл скачан');
+    } else if (result === 'clipboard') {
+      hapticSuccess();
+      toast.success('CSV скопирован — вставьте в Numbers/Excel или в заметки и сохраните');
+    } else {
+      hapticError();
+      toast.error('Не удалось выгрузить — попробуйте в другом браузере');
+    }
   };
 
   const applyBulkStatus = async () => {
-    const ids = [...selectedIds].filter((id) => filtered.some((o) => o.id === id));
+    const ids = [...selectedIds].filter((id) => displayedOrders.some((o) => o.id === id));
     if (!ids.length) {
       toast.error('Выберите заказы');
       return;
@@ -374,7 +398,7 @@ export default function AdminOrders() {
       {selectionMode && (
         <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border/30 bg-muted/20">
           <span className="text-xs text-muted-foreground">
-            Выбрано: {selectedIds.size} / {filtered.length}
+            Выбрано: {selectedIds.size} / {displayedOrders.length}
           </span>
           <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={selectAllInView}>
             Все на экране
@@ -403,43 +427,66 @@ export default function AdminOrders() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div>
-          <Label className="text-[10px] text-muted-foreground">Статус (фильтр)</Label>
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-1.5">
+        <div className="min-w-[130px] flex-1 sm:max-w-[200px]">
+          <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Статус</Label>
           <Select
             value={statusFilter || 'all'}
             onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
           >
-            <SelectTrigger className="mt-1 h-10 bg-transparent border-border/30">
-              <SelectValue placeholder="Все статусы" />
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
+              <SelectValue placeholder="Все" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все статусы</SelectItem>
+              <SelectItem value="all" className="text-xs">
+                Все статусы
+              </SelectItem>
               {STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
+                <SelectItem key={s} value={s} className="text-xs">
                   {getStatusLabel(s, 'ru')}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="text-[10px] text-muted-foreground">Создан с</Label>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="mt-1 h-10 bg-transparent border-border/30"
-          />
+        <div className="min-w-[140px] flex-1 sm:max-w-[190px]">
+          <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Сортировка</Label>
+          <Select value={sortMode} onValueChange={setSortMode}>
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_desc" className="text-xs">
+                Дата создания ↓
+              </SelectItem>
+              <SelectItem value="created_asc" className="text-xs">
+                Дата создания ↑
+              </SelectItem>
+              <SelectItem value="updated_desc" className="text-xs">
+                Обновлён ↓
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div>
-          <Label className="text-[10px] text-muted-foreground">Создан по</Label>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="mt-1 h-10 bg-transparent border-border/30"
-          />
+        <div className="flex flex-wrap gap-1.5 items-end">
+          <div>
+            <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none block">С</Label>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-8 text-[11px] px-2 w-[128px] sm:w-[132px] bg-transparent border-border/30"
+            />
+          </div>
+          <div>
+            <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none block">По</Label>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 text-[11px] px-2 w-[128px] sm:w-[132px] bg-transparent border-border/30"
+            />
+          </div>
         </div>
       </div>
 
@@ -490,7 +537,7 @@ export default function AdminOrders() {
             ))}
           </>
         ) : (
-          filtered.map((order) => (
+          displayedOrders.map((order) => (
             <GlassCard
               key={order.id}
               role="button"
@@ -575,7 +622,7 @@ export default function AdminOrders() {
             </GlassCard>
           ))
         )}
-        {!ordersLoading && filtered.length === 0 && (
+        {!ordersLoading && displayedOrders.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">Нет заказов по текущим фильтрам</p>
         )}
       </div>

@@ -11,6 +11,7 @@ import { Search, Pencil, ClipboardList, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
 import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
+import { buildClientDeliveryAddress } from '@/lib/clientAddress';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -18,7 +19,8 @@ export default function AdminClients() {
   const [editForm, setEditForm] = useState({});
   const [showOrders, setShowOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [copiedEmail, setCopiedEmail] = useState(null);
+  const [detailClient, setDetailClient] = useState(null);
+  const [copiedField, setCopiedField] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: clients = [], isPending: clientsLoading } = useQuery({
@@ -43,6 +45,7 @@ export default function AdminClients() {
   });
 
   const openEdit = (client) => {
+    setDetailClient(null);
     setSelectedClient(client);
     setShowOrders(false);
     setEditForm({
@@ -71,24 +74,38 @@ export default function AdminClients() {
     }
   };
 
-  const copyEmail = async (email, e) => {
+  const copyText = async (text, fieldKey, e) => {
     e?.stopPropagation();
-    if (!email) return;
+    if (!text) {
+      toast.error('Нечего копировать');
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(email);
-      setCopiedEmail(email);
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldKey);
       hapticSuccess();
-      toast.success('Email скопирован');
-      setTimeout(() => setCopiedEmail(null), 2000);
+      toast.success('Скопировано');
+      setTimeout(() => setCopiedField(null), 2000);
     } catch {
       hapticError();
       toast.error('Не удалось скопировать');
     }
   };
 
+  const copyFullAddress = (client, e) => {
+    const addr = buildClientDeliveryAddress(client) || client.delivery_address || '';
+    return copyText(addr, `addr-${client.id}`, e);
+  };
+
   const viewOrders = (client) => {
+    setDetailClient(null);
     setSelectedClient(client);
     setShowOrders(true);
+  };
+
+  const openEditFromCard = (client) => {
+    setDetailClient(null);
+    openEdit(client);
   };
 
   return (
@@ -102,6 +119,71 @@ export default function AdminClients() {
           className="pl-10 bg-transparent glass border-border/30"
         />
       </div>
+
+      <Dialog open={!!detailClient} onOpenChange={(v) => !v && setDetailClient(null)}>
+        <DialogContent className="max-w-md max-h-[82vh] overflow-y-auto border-border/60 bg-background">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium tracking-wide">Карточка клиента</DialogTitle>
+          </DialogHeader>
+          {detailClient && (
+            <div className="space-y-0 mt-1">
+              {[
+                ['Имя', [detailClient.first_name, detailClient.last_name].filter(Boolean).join(' ').trim()],
+                ['Email', detailClient.email],
+                ['Телефон', detailClient.phone],
+                [
+                  'Telegram',
+                  detailClient.telegram_username
+                    ? `@${String(detailClient.telegram_username).replace(/^@/, '')}`
+                    : detailClient.telegram_id || '',
+                ],
+                ['Город', detailClient.city],
+                ['Улица', detailClient.address_street],
+                ['Дом', detailClient.address_house],
+                ['Кв.', detailClient.address_apartment],
+                ['Этаж', detailClient.address_floor],
+                ['Подъезд', detailClient.address_entrance],
+                ['Домофон', detailClient.intercom],
+                ['Комментарий курьеру', detailClient.courier_comment],
+                [
+                  'Полный адрес',
+                  buildClientDeliveryAddress(detailClient) || detailClient.delivery_address || '',
+                ],
+                ['Реф. код', detailClient.referral_code],
+                ['Бонусы', `${detailClient.bonus_balance ?? 0} pts`],
+              ].map(([label, val], i) => {
+                if (val == null || String(val).trim() === '') return null;
+                const key = `f-${detailClient.id}-${i}`;
+                return (
+                  <div
+                    key={key}
+                    className="flex items-start justify-between gap-2 py-2 border-b border-border/10"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-muted-foreground">{label}</p>
+                      <p className="text-sm font-light break-words">{String(val)}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      onClick={(e) => copyText(String(val), key, e)}
+                      aria-label={`Копировать ${label}`}
+                    >
+                      {copiedField === key ? (
+                        <Check className="w-3.5 h-3.5 text-green-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="space-y-2">
         {clientsLoading ? (
@@ -118,8 +200,12 @@ export default function AdminClients() {
         ) : (
           filtered.map((client) => (
             <GlassCard key={client.id} className="p-3 sm:p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 min-w-0">
+              <div className="flex items-stretch justify-between gap-2">
+                <button
+                  type="button"
+                  className="flex-1 min-w-0 text-left rounded-lg -m-1 p-1 hover:bg-white/[0.04] transition-colors"
+                  onClick={() => setDetailClient(client)}
+                >
                   <p className="text-sm font-medium truncate">
                     {client.first_name || ''} {client.last_name || client.full_name || client.email}
                   </p>
@@ -128,7 +214,7 @@ export default function AdminClients() {
                     {client.phone && <span className="text-xs text-muted-foreground">{client.phone}</span>}
                     {client.city && <span className="text-xs text-muted-foreground">{client.city}</span>}
                   </div>
-                </div>
+                </button>
                 <div className="flex items-center gap-0.5 shrink-0">
                   <span className="text-xs font-light mr-1 hidden sm:inline">
                     {(client.bonus_balance || 0).toLocaleString()} pts
@@ -136,11 +222,11 @@ export default function AdminClients() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={(e) => copyEmail(client.email, e)}
+                    onClick={(e) => copyFullAddress(client, e)}
                     className="h-11 w-11 min-h-[44px] min-w-[44px]"
-                    aria-label="Копировать email"
+                    aria-label="Копировать адрес доставки"
                   >
-                    {copiedEmail === client.email ? (
+                    {copiedField === `addr-${client.id}` ? (
                       <Check className="w-4 h-4 text-green-400" />
                     ) : (
                       <Copy className="w-4 h-4" />
@@ -158,7 +244,7 @@ export default function AdminClients() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => openEdit(client)}
+                    onClick={() => openEditFromCard(client)}
                     className="h-11 w-11 min-h-[44px] min-w-[44px]"
                     aria-label="Редактировать клиента"
                   >

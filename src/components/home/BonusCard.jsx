@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import GlassCard from '@/components/ui/GlassCard';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
-import { ChevronRight } from 'lucide-react';
-
 export default function BonusCard({ balance }) {
   const { lang } = useTheme();
   const navigate = useNavigate();

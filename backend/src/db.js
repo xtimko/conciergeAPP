@@ -49,6 +49,7 @@ export function createUserFromTelegram(telegramUser) {
     address_house: "",
     address_apartment: "",
     address_floor: "",
+    address_entrance: "",
     intercom: "",
     courier_comment: "",
     referral_code: `REF-${nanoid(8).toUpperCase()}`,

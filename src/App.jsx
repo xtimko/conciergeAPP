@@ -143,9 +143,11 @@ function App() {
           <AuthenticatedApp />
         </Router>
         <Toaster
-          position="top-center"
+          position="bottom-center"
           richColors
           closeButton
+          offset={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
+          mobileOffset={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
           className="!z-[10050]"
           toastOptions={{
             classNames: {

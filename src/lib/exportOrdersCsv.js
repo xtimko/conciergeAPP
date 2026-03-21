@@ -27,22 +27,62 @@ const ORDER_COLUMNS = [
   { key: 'referral_bonus', header: 'referral_bonus' },
 ];
 
+function buildCsvString(orders) {
+  const header = ORDER_COLUMNS.map((c) => c.header).join(',');
+  const body = orders
+    .map((o) => ORDER_COLUMNS.map((c) => escapeCell(o[c.key])).join(','))
+    .join('\n');
+  return `\uFEFF${header}\n${body}`;
+}
+
 /**
- * @param {object[]} orders
- * @param {string} [filename]
+ * Экспорт CSV: в Telegram Mini App надёжнее «Поделиться» файлом или копирование в буфер.
+ * @returns {'share'|'download'|'clipboard'|'fail'}
  */
-export function downloadOrdersCsv(orders, filename = 'orders-export.csv') {
-  const lines = [
-    ORDER_COLUMNS.map((c) => c.header).join(','),
-    ...orders.map((o) =>
-      ORDER_COLUMNS.map((c) => escapeCell(o[c.key])).join(','),
-    ),
-  ];
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+export async function exportOrdersCsv(orders, filename = 'orders-export.csv') {
+  if (!orders?.length) return 'fail';
+
+  const csv = buildCsvString(orders);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const file = new File([blob], filename, {
+    type: 'text/csv',
+    lastModified: Date.now(),
+  });
+
+  if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: filename,
+      });
+      return 'share';
+    } catch (e) {
+      if (e?.name === 'AbortError') return 'fail';
+    }
+  }
+
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2500);
+    return 'download';
+  } catch {
+    /* continue */
+  }
+
+  try {
+    await navigator.clipboard.writeText(csv);
+    return 'clipboard';
+  } catch {
+    /* continue */
+  }
+
+  return 'fail';
 }

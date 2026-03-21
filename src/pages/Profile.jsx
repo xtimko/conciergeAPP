@@ -47,9 +47,9 @@ export default function Profile() {
         address_house: user.address_house || '',
         address_apartment: user.address_apartment || '',
         address_floor: user.address_floor || '',
+        address_entrance: user.address_entrance || '',
         intercom: user.intercom || '',
         courier_comment: user.courier_comment || '',
-        delivery_address: user.delivery_address || '',
       });
       syncPhoneFromUser(user);
     }
@@ -163,7 +163,7 @@ export default function Profile() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-2">
             <div>
               <Label className="text-[10px] text-muted-foreground">{t('addressShortHouse', lang)}</Label>
               {editing ? (
@@ -201,6 +201,18 @@ export default function Profile() {
               )}
             </div>
             <div>
+              <Label className="text-[10px] text-muted-foreground">{t('addressShortEntrance', lang)}</Label>
+              {editing ? (
+                <Input
+                  value={form.address_entrance}
+                  onChange={(e) => setForm({ ...form, address_entrance: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
+              ) : (
+                <p className="text-sm font-light mt-0.5">{user.address_entrance || '—'}</p>
+              )}
+            </div>
+            <div className="col-span-2">
               <Label className="text-[10px] text-muted-foreground">{t('addressShortIntercom', lang)}</Label>
               {editing ? (
                 <Input
@@ -229,20 +241,16 @@ export default function Profile() {
             )}
           </div>
 
-          <div>
-            <Label className="text-[10px] text-muted-foreground">
-              {lang === 'ru' ? 'Адрес одной строкой' : 'Full address (optional)'}
-            </Label>
-            {editing ? (
-              <Textarea
-                value={form.delivery_address}
-                onChange={(e) => setForm({ ...form, delivery_address: e.target.value })}
-                className="mt-0.5 min-h-[44px] text-sm bg-transparent border-border/30 resize-none py-2"
-              />
-            ) : (
-              <p className="text-sm font-light mt-0.5 whitespace-pre-wrap">{user.delivery_address || '—'}</p>
-            )}
-          </div>
+          {!editing && user.delivery_address ? (
+            <div className="pt-1 border-t border-border/20">
+              <Label className="text-[10px] text-muted-foreground">
+                {lang === 'ru' ? 'Собранный адрес' : 'Full address'}
+              </Label>
+              <p className="text-xs font-light mt-0.5 whitespace-pre-wrap text-muted-foreground leading-relaxed">
+                {user.delivery_address}
+              </p>
+            </div>
+          ) : null}
         </div>
       </GlassCard>
 
@@ -263,9 +271,9 @@ export default function Profile() {
                     address_house: user.address_house || '',
                     address_apartment: user.address_apartment || '',
                     address_floor: user.address_floor || '',
+                    address_entrance: user.address_entrance || '',
                     intercom: user.intercom || '',
                     courier_comment: user.courier_comment || '',
-                    delivery_address: user.delivery_address || '',
                   });
                   syncPhoneFromUser(user);
                 }
