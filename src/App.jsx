@@ -24,6 +24,7 @@ import Onboarding from '@/pages/Onboarding';
 import AdminDashboard from '@/pages/AdminDashboard';
 import AdminOrders from '@/pages/AdminOrders';
 import AdminClients from '@/pages/AdminClients';
+import AdminFinance from '@/pages/AdminFinance';
 
 function ProfileGate({ children }) {
   const location = useLocation();
@@ -74,6 +75,7 @@ const AppRoutes = () => {
         <Route element={<AdminLayout />}>
           <Route path="/AdminDashboard" element={<AdminDashboard />} />
           <Route path="/AdminOrders" element={<AdminOrders />} />
+          <Route path="/AdminFinance" element={<AdminFinance />} />
           <Route path="/AdminClients" element={<AdminClients />} />
         </Route>
       )}

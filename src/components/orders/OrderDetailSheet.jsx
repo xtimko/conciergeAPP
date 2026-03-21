@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Drawer,
@@ -33,10 +33,53 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   const { lang } = useTheme();
   const [idCopied, setIdCopied] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const lightboxUserDismissedRef = useRef(false);
 
   useEffect(() => {
     setLightboxUrl(null);
+    setLightboxVisible(false);
+    lightboxUserDismissedRef.current = false;
   }, [order?.id]);
+
+  useEffect(() => {
+    if (!lightboxUrl) {
+      setLightboxVisible(false);
+      return;
+    }
+    lightboxUserDismissedRef.current = false;
+    setLightboxVisible(false);
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!lightboxUserDismissedRef.current) setLightboxVisible(true);
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [lightboxUrl]);
+
+  useEffect(() => {
+    if (!lightboxVisible && lightboxUrl && lightboxUserDismissedRef.current) {
+      const t = setTimeout(() => {
+        setLightboxUrl(null);
+        lightboxUserDismissedRef.current = false;
+      }, 320);
+      return () => clearTimeout(t);
+    }
+  }, [lightboxVisible, lightboxUrl]);
+
+  const closeLightbox = useCallback(() => {
+    lightboxUserDismissedRef.current = true;
+    setLightboxVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxUrl, closeLightbox]);
 
   const copyId = async () => {
     if (!order?.id) return;
@@ -164,6 +207,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
                 type="button"
                 className="w-full rounded-xl overflow-hidden mb-3 bg-muted/30 py-2 active:opacity-90"
                 onClick={() => {
+                  lightboxUserDismissedRef.current = false;
                   setLightboxUrl(order.image_url);
                   hapticImpact('light');
                 }}
@@ -245,13 +289,23 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
             role="dialog"
             aria-modal="true"
             aria-label={lang === 'ru' ? 'Фото' : 'Photo'}
-            className="fixed inset-0 z-[21000] flex items-center justify-center bg-black/85 p-4 touch-manipulation"
-            onClick={() => setLightboxUrl(null)}
+            className="fixed inset-0 z-[21000] flex items-center justify-center p-4 touch-manipulation"
+            onClick={closeLightbox}
           >
+            <div
+              aria-hidden
+              className={`absolute inset-0 bg-black transition-opacity duration-300 ease-out ${
+                lightboxVisible ? 'opacity-85' : 'opacity-0'
+              }`}
+            />
             <img
               src={lightboxUrl}
               alt=""
-              className="max-w-full max-h-[85dvh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+              className={`relative z-[1] max-w-full max-h-[85dvh] w-auto object-contain rounded-lg shadow-2xl transition-all duration-300 ease-out ${
+                lightboxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.94]'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
             />
           </div>,
           document.body

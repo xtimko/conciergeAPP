@@ -37,13 +37,12 @@ function buildCsvString(orders) {
 }
 
 /**
- * Экспорт CSV: в Telegram Mini App надёжнее «Поделиться» файлом или копирование в буфер.
+ * Экспорт готовой CSV-строки (с BOM): «Поделиться», скачать или буфер.
  * @returns {'share'|'download'|'clipboard'|'fail'}
  */
-export async function exportOrdersCsv(orders, filename = 'orders-export.csv') {
-  if (!orders?.length) return 'fail';
+export async function exportCsvString(csv, filename = 'export.csv') {
+  if (csv == null || csv === '') return 'fail';
 
-  const csv = buildCsvString(orders);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const file = new File([blob], filename, {
     type: 'text/csv',
@@ -86,4 +85,13 @@ export async function exportOrdersCsv(orders, filename = 'orders-export.csv') {
   }
 
   return 'fail';
+}
+
+/**
+ * Экспорт CSV: в Telegram Mini App надёжнее «Поделиться» файлом или копирование в буфер.
+ * @returns {'share'|'download'|'clipboard'|'fail'}
+ */
+export async function exportOrdersCsv(orders, filename = 'orders-export.csv') {
+  if (!orders?.length) return 'fail';
+  return exportCsvString(buildCsvString(orders), filename);
 }

@@ -62,9 +62,10 @@ export default function Referral() {
 
   return (
     <div className="px-4 pt-6 space-y-5">
-      <div className="text-center">
-        <Gift className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-        <h2 className="text-sm font-medium tracking-wide">{t('referral', lang)}</h2>
+      <div className="flex justify-center">
+        <div className="w-14 h-14 rounded-full glass flex items-center justify-center">
+          <Users className="w-6 h-6 text-muted-foreground" strokeWidth={1.25} />
+        </div>
       </div>
 
       <GlassCard className="text-center">

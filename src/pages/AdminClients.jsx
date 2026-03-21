@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
 import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
 import { buildClientDeliveryAddress } from '@/lib/clientAddress';
+import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -38,9 +39,20 @@ export default function AdminClients() {
     const q = search.toLowerCase();
     return (
       !q ||
-      [c.full_name, c.first_name, c.last_name, c.email, c.phone, c.city, c.referral_code].some((f) =>
-        f?.toLowerCase().includes(q),
-      )
+      [
+        c.full_name,
+        c.first_name,
+        c.last_name,
+        c.email,
+        c.phone,
+        c.city,
+        c.referral_code,
+        c.id,
+        c.telegram_id,
+        c.telegram_username,
+      ].some((f) => String(f || '')
+        .toLowerCase()
+        .includes(q))
     );
   });
 
@@ -115,7 +127,7 @@ export default function AdminClients() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск: имя, email, телефон, город…"
+          placeholder="Поиск: имя, телефон, @telegram, ID…"
           className="pl-10 bg-transparent glass border-border/30"
         />
       </div>
@@ -129,7 +141,7 @@ export default function AdminClients() {
             <div className="space-y-0 mt-1">
               {[
                 ['Имя', [detailClient.first_name, detailClient.last_name].filter(Boolean).join(' ').trim()],
-                ['Email', detailClient.email],
+                ['ID', detailClient.id],
                 ['Телефон', detailClient.phone],
                 [
                   'Telegram',
@@ -217,12 +229,24 @@ export default function AdminClients() {
                   onClick={() => setDetailClient(client)}
                 >
                   <p className="text-sm font-medium truncate">
-                    {client.first_name || ''} {client.last_name || client.full_name || client.email}
+                    {getClientPrimaryName(client) || getClientDisplayHandle(client)}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {getClientPrimaryName(client)
+                      ? getClientDisplayHandle(client)
+                      : [client.phone, client.city].filter(Boolean).join(' · ') || '\u00a0'}
+                  </p>
                   <div className="flex gap-3 mt-1 flex-wrap">
-                    {client.phone && <span className="text-xs text-muted-foreground">{client.phone}</span>}
-                    {client.city && <span className="text-xs text-muted-foreground">{client.city}</span>}
+                    {getClientPrimaryName(client) ? (
+                      <>
+                        {client.phone && (
+                          <span className="text-xs text-muted-foreground">{client.phone}</span>
+                        )}
+                        {client.city && (
+                          <span className="text-xs text-muted-foreground">{client.city}</span>
+                        )}
+                      </>
+                    ) : null}
                   </div>
                 </button>
                 <div className="flex items-center gap-0.5 shrink-0">
@@ -344,7 +368,10 @@ export default function AdminClients() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
-              Заказы — {selectedClient?.first_name || selectedClient?.full_name || selectedClient?.email}
+              Заказы —{' '}
+              {selectedClient
+                ? getClientPrimaryName(selectedClient) || getClientDisplayHandle(selectedClient)
+                : ''}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-4">

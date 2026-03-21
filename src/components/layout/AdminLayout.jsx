@@ -1,10 +1,11 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Users, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, ArrowLeft, Wallet } from 'lucide-react';
 
 const tabs = [
   { path: '/AdminDashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/AdminOrders', icon: ClipboardList, label: 'Orders' },
+  { path: '/AdminFinance', icon: Wallet, label: 'Финансы' },
   { path: '/AdminClients', icon: Users, label: 'Clients' },
 ];
 

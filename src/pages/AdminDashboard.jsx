@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, Users, Package, TrendingUp, Wallet } from 'lucide-react';
+import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
 
 export default function AdminDashboard() {
   const { data: orders = [], isPending: ordersLoading } = useQuery({
@@ -17,6 +18,12 @@ export default function AdminDashboard() {
   });
 
   const loading = ordersLoading || clientsLoading;
+
+  const recentOrders = useMemo(() => {
+    const arr = [...orders];
+    arr.sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
+    return arr.slice(0, 10);
+  }, [orders]);
 
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
   const totalRevenue = orders.reduce((sum, o) => sum + Number(o.price || 0), 0);
@@ -68,15 +75,37 @@ export default function AdminDashboard() {
             ))}
           </div>
         ) : (
-          orders.slice(0, 10).map((order) => (
-            <div key={order.id} className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
-              <div>
-                <p className="text-sm font-light">{order.item_name}</p>
-                <p className="text-xs text-muted-foreground">{order.client_name || order.client_email}</p>
+          recentOrders.map((order) => {
+            const client = clients.find((c) => c.email === order.client_email);
+            const subLine =
+              order.client_name?.trim() ||
+              getClientPrimaryName(client) ||
+              getClientDisplayHandle(client) ||
+              '—';
+            const profitDel =
+              order.status === 'delivered'
+                ? Math.round(Number(order.price || 0) - Number(order.cost_price || 0))
+                : null;
+            return (
+              <div
+                key={order.id}
+                className="flex items-center justify-between gap-2 py-2 border-b border-border/10 last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-light truncate">{order.item_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{subLine}</p>
+                </div>
+                <span className="text-xs text-muted-foreground text-right shrink-0 whitespace-nowrap">
+                  {order.status}
+                  {profitDel != null ? (
+                    <span className="text-emerald-500/90 font-medium tabular-nums ml-1.5">
+                      +{profitDel.toLocaleString('ru-RU')}
+                    </span>
+                  ) : null}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground">{order.status}</span>
-            </div>
-          ))
+            );
+          })
         )}
       </GlassCard>
     </div>

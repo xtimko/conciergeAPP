@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo } from 'lucide-react';
+import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
@@ -339,6 +339,18 @@ export default function AdminOrders() {
     setQuickStatusValue(order.status || 'pending');
   };
 
+  const resetFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setStatusFilter('');
+    setOrderFilter('all');
+    setSearch('');
+    hapticImpact('light');
+    toast.success('Фильтры сброшены');
+  };
+
+  const hasActiveFilters = !!(dateFrom || dateTo || statusFilter || search.trim() || orderFilter !== 'all');
+
   const saveQuickStatus = async () => {
     if (!statusQuick) return;
     try {
@@ -490,6 +502,17 @@ export default function AdminOrders() {
               className="h-8 text-[11px] px-2 w-[128px] sm:w-[132px] bg-transparent border-border/30"
             />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={`h-8 text-[11px] px-2.5 glass border-border/30 shrink-0 ${hasActiveFilters ? '' : 'opacity-60'}`}
+            onClick={resetFilters}
+            title="Сбросить фильтры и даты"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />
+            Сброс
+          </Button>
         </div>
       </div>
 

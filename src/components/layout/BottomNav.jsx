@@ -23,7 +23,7 @@ export default function BottomNav({ isAdmin }) {
   return (
     <nav
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-30 glass-chrome-bottom miniapp-tabbar-pb pt-3 transition-transform duration-200 ease-out',
+        'fixed bottom-0 left-0 right-0 z-30 glass-chrome-bottom miniapp-tabbar-pb pt-3 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
         keyboardOpen && 'translate-y-full opacity-0 pointer-events-none',
       )}
       aria-hidden={keyboardOpen}
