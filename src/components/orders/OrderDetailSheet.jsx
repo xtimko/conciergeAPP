@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Drawer,
   DrawerContent,
@@ -11,7 +12,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t, getStatusLabel, getCategoryLabel } from '@/lib/i18n';
 import { Badge } from '@/components/ui/badge';
 import { Package, Calendar, Tag, Banknote, Clock, Copy, Check } from 'lucide-react';
-import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
+import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics';
 import { toast } from 'sonner';
 
 function formatDate(iso, locale) {
@@ -31,6 +32,11 @@ function formatDate(iso, locale) {
 export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   const { lang } = useTheme();
   const [idCopied, setIdCopied] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+
+  useEffect(() => {
+    setLightboxUrl(null);
+  }, [order?.id]);
 
   const copyId = async () => {
     if (!order?.id) return;
@@ -133,6 +139,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   }, [order, lang, etaLabel, daysLeftLabel]);
 
   return (
+    <>
     <Drawer
       open={open && !!order}
       onOpenChange={(isOpen) => {
@@ -153,9 +160,21 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
             </DrawerHeader>
 
             {order.image_url && (
-              <div className="rounded-xl overflow-hidden mb-3">
-                <img src={order.image_url} alt={order.item_name} className="w-full max-h-44 object-cover" />
-              </div>
+              <button
+                type="button"
+                className="w-full rounded-xl overflow-hidden mb-3 bg-muted/30 py-2 active:opacity-90"
+                onClick={() => {
+                  setLightboxUrl(order.image_url);
+                  hapticImpact('light');
+                }}
+                aria-label={lang === 'ru' ? 'Увеличить фото' : 'Enlarge photo'}
+              >
+                <img
+                  src={order.image_url}
+                  alt=""
+                  className="w-full max-h-[min(42vw,220px)] object-contain mx-auto block"
+                />
+              </button>
             )}
 
             <div className="flex items-start justify-between gap-2 py-2 border-b border-border/10 mb-2">
@@ -220,5 +239,24 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
         )}
       </DrawerContent>
     </Drawer>
+    {lightboxUrl && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={lang === 'ru' ? 'Фото' : 'Photo'}
+            className="fixed inset-0 z-[21000] flex items-center justify-center bg-black/85 p-4 touch-manipulation"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <img
+              src={lightboxUrl}
+              alt=""
+              className="max-w-full max-h-[85dvh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+            />
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 }

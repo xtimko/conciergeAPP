@@ -15,7 +15,8 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ALLOW_DEV_TELEGRAM_LOGIN = process.env.ALLOW_DEV_TELEGRAM_LOGIN === "true";
 
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
-app.use(express.json());
+/* data URL фото в заказах — без лимита мелкие запросы падают на больших снимках */
+app.use(express.json({ limit: "32mb" }));
 
 function signToken(user) {
   return jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });

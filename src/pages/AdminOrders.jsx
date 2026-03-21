@@ -688,7 +688,11 @@ export default function AdminOrders() {
       </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto border-border/60 bg-background">
+        <DialogContent
+          className="max-w-lg max-h-[90vh] overflow-y-auto border-border/60 bg-background"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
               {editingOrder ? 'Редактирование заказа' : 'Новый заказ'}
