@@ -845,11 +845,11 @@ export default function AdminOrders() {
             </div>
 
             <div className="col-span-2 border-t border-border/20 pt-3 mt-1">
-              <p className="text-xs font-medium mb-2">Бонусы по заказу</p>
+              <p className="text-xs font-medium mb-2">Баллы по заказу</p>
               {selectedClientId ? (
                 <p className="text-xs text-muted-foreground mb-3">
                   Баланс клиента: <span className="text-foreground font-medium">{clientBonusBalance}</span>{' '}
-                  бонусов
+                  баллов
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mb-3">Выберите клиента, чтобы видеть баланс</p>
@@ -874,7 +874,7 @@ export default function AdminOrders() {
                   </p>
                 </div>
                 <div>
-                  <Label className="text-xs">Друг — бонусы владельцу реф. кода</Label>
+                  <Label className="text-xs">Друг — баллы владельцу реф. кода</Label>
                   <Input
                     type="number"
                     value={form.referrer_bonus}

@@ -41,7 +41,10 @@ export default function Home() {
   });
 
   const displayName = user?.first_name || user?.full_name?.split(' ')[0] || '';
-  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+  const activeOrders = orders.filter((o) => !['delivered', 'cancelled'].includes(o.status));
+  const completedOrders = orders
+    .filter((o) => ['delivered', 'cancelled'].includes(o.status))
+    .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
 
   return (
     <div className="px-4 pt-6 space-y-5">
@@ -58,7 +61,7 @@ export default function Home() {
 
       <GlassCard>
         <h3 className="text-sm font-medium tracking-wide mb-3">
-          {t('yourOrders', lang)}:
+          {t('activeOrders', lang)}
         </h3>
         {activeOrders.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
@@ -66,7 +69,29 @@ export default function Home() {
           </p>
         ) : (
           <div>
-            {activeOrders.map(order => (
+            {activeOrders.map((order) => (
+              <OrderRow
+                key={order.id}
+                order={order}
+                onClick={() => setSelectedOrder(order)}
+              />
+            ))}
+            <p className="text-[10px] text-muted-foreground text-center mt-3">
+              {t('tapForDetails', lang)}
+            </p>
+          </div>
+        )}
+      </GlassCard>
+
+      <GlassCard>
+        <h3 className="text-sm font-medium tracking-wide mb-3">
+          {t('completedOrders', lang)}
+        </h3>
+        {completedOrders.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-3">{t('noCompletedOrders', lang)}</p>
+        ) : (
+          <div>
+            {completedOrders.map((order) => (
               <OrderRow
                 key={order.id}
                 order={order}

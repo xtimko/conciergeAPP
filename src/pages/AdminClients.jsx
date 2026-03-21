@@ -150,7 +150,7 @@ export default function AdminClients() {
                   buildClientDeliveryAddress(detailClient) || detailClient.delivery_address || '',
                 ],
                 ['Реф. код', detailClient.referral_code],
-                ['Бонусы', `${detailClient.bonus_balance ?? 0} pts`],
+                ['Баллы', `${detailClient.bonus_balance ?? 0} pts`],
               ].map(([label, val], i) => {
                 if (val == null || String(val).trim() === '') return null;
                 const key = `f-${detailClient.id}-${i}`;

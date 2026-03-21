@@ -32,15 +32,15 @@ export default function OrderRow({ order, onClick }) {
       className="w-full text-left rounded-xl border border-border/25 bg-muted/10 hover:bg-muted/25 active:scale-[0.99] transition-all p-2.5 mb-2 last:mb-0"
     >
       <div className="flex gap-2.5">
-        {order.image_url ? (
-          <img
-            src={order.image_url}
-            alt=""
-            className="w-[52px] h-[52px] rounded-lg object-cover shrink-0 bg-muted/30"
-          />
-        ) : (
-          <div className="w-[52px] h-[52px] rounded-lg shrink-0 bg-muted/30" />
-        )}
+        <div className="w-11 h-11 shrink-0 rounded-lg bg-muted/40 overflow-hidden flex items-center justify-center p-0.5">
+          {order.image_url ? (
+            <img
+              src={order.image_url}
+              alt=""
+              className="max-h-full max-w-full w-auto h-auto object-contain"
+            />
+          ) : null}
+        </div>
 
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-start justify-between gap-2">

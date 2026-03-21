@@ -86,6 +86,24 @@ export default function Referral() {
       </GlassCard>
 
       <GlassCard>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Users className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-wide">{t('totalReferrals', lang)}</span>
+          </div>
+          <span className="text-lg font-light">{referrals.length}</span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Gift className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-wide">{t('pointsFromFriendsTotal', lang)}</span>
+          </div>
+          <span className="text-lg font-light">{totalFromFriends.toLocaleString('ru-RU')}</span>
+        </div>
+      </GlassCard>
+
+      <GlassCard>
         <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3">
           {t('bonusFromOrders', lang)}
         </p>
@@ -142,26 +160,6 @@ export default function Referral() {
           </div>
         </div>
       </div>
-
-      <GlassCard>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Users className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-wide">{t('totalReferrals', lang)}</span>
-          </div>
-          <span className="text-lg font-light">{referrals.length}</span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Gift className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-wide">
-              {lang === 'ru' ? 'Бонусы от друзей' : 'Bonuses from friends'}
-            </span>
-          </div>
-          <span className="text-lg font-light">{totalFromFriends.toLocaleString('ru-RU')}</span>
-        </div>
-      </GlassCard>
     </div>
   );
 }
