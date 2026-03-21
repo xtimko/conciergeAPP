@@ -58,8 +58,6 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     return { etaLabel, daysLeftLabel };
   }, [order, lang]);
 
-  if (!order) return null;
-
   const statusStyles = {
     pending: 'bg-muted text-muted-foreground',
     confirmed: 'bg-secondary text-secondary-foreground',
@@ -70,47 +68,51 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     cancelled: 'bg-destructive/20 text-destructive',
   };
 
-  const orderDateStr = formatDate(order.created_date, lang);
-
-  const rows = [
-    { icon: Calendar, label: lang === 'ru' ? 'Дата заказа' : 'Order date', value: orderDateStr },
-    { icon: Package, label: t('brand', lang), value: order.brand },
-    { icon: Tag, label: t('size', lang), value: order.item_size },
-    {
-      icon: Tag,
-      label: t('category', lang),
-      value: order.item_category ? getCategoryLabel(order.item_category, lang) : null,
-    },
-    {
-      icon: Banknote,
-      label: t('price', lang),
-      value: order.price ? `${order.price.toLocaleString()} ${order.currency || 'RUB'}` : null,
-    },
-    {
-      icon: Clock,
-      label: lang === 'ru' ? 'Примерная дата получения' : 'Approx. delivery',
-      value: etaLabel,
-    },
-    {
-      icon: Calendar,
-      label: lang === 'ru' ? 'До получения' : 'Until delivery',
-      value: daysLeftLabel,
-    },
-  ].filter((r) => r.value);
+  const rows = useMemo(() => {
+    if (!order) return [];
+    const orderDateStr = formatDate(order.created_date, lang);
+    return [
+      { icon: Calendar, label: lang === 'ru' ? 'Дата заказа' : 'Order date', value: orderDateStr },
+      { icon: Package, label: t('brand', lang), value: order.brand },
+      { icon: Tag, label: t('size', lang), value: order.item_size },
+      {
+        icon: Tag,
+        label: t('category', lang),
+        value: order.item_category ? getCategoryLabel(order.item_category, lang) : null,
+      },
+      {
+        icon: Banknote,
+        label: t('price', lang),
+        value: order.price ? `${order.price.toLocaleString()} ${order.currency || 'RUB'}` : null,
+      },
+      {
+        icon: Clock,
+        label: lang === 'ru' ? 'Примерная дата получения' : 'Approx. delivery',
+        value: etaLabel,
+      },
+      {
+        icon: Calendar,
+        label: lang === 'ru' ? 'До получения' : 'Until delivery',
+        value: daysLeftLabel,
+      },
+    ].filter((r) => r.value);
+  }, [order, lang, etaLabel, daysLeftLabel]);
 
   return (
     <Sheet
-      open={open}
+      open={open && !!order}
       onOpenChange={(isOpen) => {
         if (!isOpen) onClose?.();
       }}
     >
       <SheetContent
         side="bottom"
-        className="rounded-t-[1.75rem] glass border-0 max-h-[80vh] pb-[calc(env(safe-area-inset-bottom,0px)+1.25rem)]"
+        className="rounded-t-[1.75rem] max-h-[85vh] overflow-y-auto border-0 bg-background pb-[calc(env(safe-area-inset-bottom,0px)+1.25rem)] pt-2"
       >
+        {!order ? null : (
+          <>
         <SheetHeader className="pb-4">
-          <SheetTitle className="text-base font-medium tracking-wide">
+          <SheetTitle className="text-base font-medium tracking-wide pr-8">
             {order.item_name}
           </SheetTitle>
           <Badge className={`w-fit text-xs ${statusStyles[order.status] || ''}`}>
@@ -150,6 +152,8 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
           <p className="text-[10px] text-muted-foreground mt-4 text-center">
             {lang === 'ru' ? 'Только просмотр' : 'Read only'}
           </p>
+        )}
+          </>
         )}
       </SheetContent>
     </Sheet>

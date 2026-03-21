@@ -7,13 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Search, Pencil, Copy, Check } from 'lucide-react';
+import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
 import ImageUploadField from '@/components/admin/ImageUploadField';
 
 const STATUSES = ['pending', 'confirmed', 'sourcing', 'shipping', 'awaiting_pickup', 'delivered', 'cancelled'];
+const TERMINAL_STATUSES = ['delivered', 'cancelled'];
+const isActiveOrder = (o) => o && !TERMINAL_STATUSES.includes(o.status);
 const CATEGORIES = ['footwear', 'clothing', 'accessories', 'bags', 'other'];
 const CURRENCIES = ['RUB', 'USD', 'EUR'];
 
@@ -54,6 +56,11 @@ export default function AdminOrders() {
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [clientAddress, setClientAddress] = useState('');
   const [addrCopied, setAddrCopied] = useState(false);
+  /** all | active | completed */
+  const [orderFilter, setOrderFilter] = useState('all');
+  /** быстрая смена статуса */
+  const [statusQuick, setStatusQuick] = useState(null);
+  const [quickStatusValue, setQuickStatusValue] = useState('pending');
   const queryClient = useQueryClient();
 
   const { data: orders = [] } = useQuery({
@@ -76,15 +83,20 @@ export default function AdminOrders() {
     return clients.find((c) => c.email === selectedClient.referred_by) || null;
   }, [clients, selectedClient]);
 
-  const filtered = orders.filter((o) => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return (
-      !q ||
-      [o.item_name, o.client_name, o.client_email, o.brand, o.status].some((f) =>
-        f?.toLowerCase().includes(q),
-      )
-    );
-  });
+    return orders.filter((o) => {
+      const matchSearch =
+        !q ||
+        [o.item_name, o.client_name, o.client_email, o.brand, o.status].some((f) =>
+          f?.toLowerCase().includes(q),
+        );
+      if (!matchSearch) return false;
+      if (orderFilter === 'active') return isActiveOrder(o);
+      if (orderFilter === 'completed') return !isActiveOrder(o);
+      return true;
+    });
+  }, [orders, search, orderFilter]);
 
   const openNew = () => {
     setEditingOrder(null);
@@ -190,6 +202,20 @@ export default function AdminOrders() {
   const hasReferrer = !!(selectedClient?.referred_by && referrerUser);
   const clientBonusBalance = selectedClient?.bonus_balance ?? 0;
 
+  const openQuickStatus = (order) => {
+    setStatusQuick(order);
+    setQuickStatusValue(order.status || 'pending');
+  };
+
+  const saveQuickStatus = async () => {
+    if (!statusQuick) return;
+    await base44.entities.Order.update(statusQuick.id, { status: quickStatusValue });
+    toast.success('Статус обновлён');
+    queryClient.invalidateQueries({ queryKey: ['allOrders'] });
+    queryClient.invalidateQueries({ queryKey: ['allClients'] });
+    setStatusQuick(null);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -207,9 +233,53 @@ export default function AdminOrders() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={orderFilter === 'all' ? 'default' : 'outline'}
+          className={orderFilter === 'all' ? 'bg-foreground text-background' : 'glass border-border/30'}
+          onClick={() => setOrderFilter('all')}
+        >
+          Все ({orders.length})
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={orderFilter === 'active' ? 'default' : 'outline'}
+          className={orderFilter === 'active' ? 'bg-foreground text-background' : 'glass border-border/30'}
+          onClick={() => setOrderFilter('active')}
+        >
+          <ListChecks className="w-3.5 h-3.5 mr-1" />
+          Активные ({orders.filter(isActiveOrder).length})
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={orderFilter === 'completed' ? 'default' : 'outline'}
+          className={orderFilter === 'completed' ? 'bg-foreground text-background' : 'glass border-border/30'}
+          onClick={() => setOrderFilter('completed')}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+          Завершённые ({orders.filter((o) => !isActiveOrder(o)).length})
+        </Button>
+      </div>
+
       <div className="space-y-2">
         {filtered.map((order) => (
-          <GlassCard key={order.id} className="flex items-center justify-between p-4">
+          <GlassCard
+            key={order.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => openQuickStatus(order)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openQuickStatus(order);
+              }
+            }}
+            className="flex items-center justify-between p-4 cursor-pointer"
+          >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {order.image_url && (
                 <img src={order.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
@@ -220,19 +290,64 @@ export default function AdminOrders() {
                 <p className="text-xs text-muted-foreground mt-0.5">{getStatusLabel(order.status, 'ru')}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {order.price ? (
                 <span className="text-xs font-light">
                   {order.price.toLocaleString()} {order.currency}
                 </span>
               ) : null}
-              <Button variant="ghost" size="icon" onClick={() => openEdit(order)} className="h-8 w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEdit(order);
+                }}
+                className="h-8 w-8"
+                aria-label="Редактировать заказ"
+              >
                 <Pencil className="w-3.5 h-3.5" />
               </Button>
             </div>
           </GlassCard>
         ))}
       </div>
+
+      <Dialog open={!!statusQuick} onOpenChange={(v) => !v && setStatusQuick(null)}>
+        <DialogContent className="glass border-border/20 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium tracking-wide">Статус заказа</DialogTitle>
+          </DialogHeader>
+          {statusQuick && (
+            <>
+              <p className="text-sm font-light line-clamp-2">{statusQuick.item_name}</p>
+              <div className="mt-2">
+                <Label className="text-xs">Новый статус</Label>
+                <Select value={quickStatusValue} onValueChange={setQuickStatusValue}>
+                  <SelectTrigger className="mt-1 bg-transparent border-border/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {getStatusLabel(s, 'ru')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setStatusQuick(null)} className="glass border-border/30">
+                  Отмена
+                </Button>
+                <Button onClick={saveQuickStatus} className="bg-foreground text-background hover:bg-foreground/90">
+                  Сохранить
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="glass border-border/20 max-h-[90vh] overflow-y-auto max-w-lg">

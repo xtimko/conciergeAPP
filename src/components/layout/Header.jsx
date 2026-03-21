@@ -12,7 +12,7 @@ export default function Header({ isAdmin }) {
           <img
             src="https://media.base44.com/images/public/69bbc4b13118d84816c867de/5ccc028bc_IMG_9731.png"
             alt="Concierge"
-            className="h-[22px] w-auto object-contain opacity-[0.92]"
+            className="h-[22px] w-auto object-contain opacity-[0.92] invert dark:invert-0"
           />
         </div>
         {isAdmin && (

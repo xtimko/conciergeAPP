@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from 'sonner';
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
@@ -142,7 +142,17 @@ function App() {
         <Router>
           <AuthenticatedApp />
         </Router>
-        <Toaster />
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          className="!z-[520]"
+          toastOptions={{
+            classNames: {
+              toast: 'border border-border/60 bg-background text-foreground shadow-lg',
+            },
+          }}
+        />
       </QueryClientProvider>
     </AuthProvider>
   )

@@ -18,7 +18,7 @@ export default function BottomNav({ isAdmin }) {
   const tabs = clientTabs;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-chrome-bottom miniapp-tabbar-pb pt-3">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 glass-chrome-bottom miniapp-tabbar-pb pt-3">
       <div className="px-2 max-w-lg mx-auto flex justify-around items-stretch min-h-[56px]">
         {tabs.map((tab) => {
           const isActive = location.pathname === tab.path;
