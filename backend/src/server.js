@@ -38,6 +38,24 @@ function adminRequired(req, res, next) {
   next();
 }
 
+/** Одно число дней или диапазон "7-14" → верхняя граница в estimated_days + строка диапазона */
+function normalizeEstimatedDays(body) {
+  const raw = body?.estimated_days;
+  const s = raw == null ? "" : String(raw).trim();
+  if (!s) return { estimated_days: 0, estimated_days_range: "" };
+  const m = s.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    return { estimated_days: hi, estimated_days_range: `${lo}-${hi}` };
+  }
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return { estimated_days: n, estimated_days_range: "" };
+  return { estimated_days: 0, estimated_days_range: "" };
+}
+
 app.get("/api/health", (_, res) => res.json({ ok: true }));
 
 app.post("/api/auth/telegram", (req, res) => {
@@ -296,6 +314,7 @@ function applyOrderBonusesIfNeeded(db, order) {
 app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   const db = readDb();
   const body = req.body || {};
+  const est = normalizeEstimatedDays(body);
   const order = {
     id: nanoid(),
     client_email: body.client_email || "",
@@ -308,7 +327,8 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
     cost_price: Number(body.cost_price || 0),
     currency: body.currency || "RUB",
     status: body.status || "pending",
-    estimated_days: Number(body.estimated_days || 0),
+    estimated_days: est.estimated_days,
+    estimated_days_range: est.estimated_days_range,
     image_url: body.image_url || "",
     notes: body.notes || "",
     referrer_bonus: Number(body.referrer_bonus || 0),
@@ -334,6 +354,11 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   delete body.bonuses_applied;
   if (body.client_bonus_mode !== undefined) {
     body.client_bonus_mode = body.client_bonus_mode === "subtract" ? "subtract" : "add";
+  }
+  if (body.estimated_days !== undefined) {
+    const est = normalizeEstimatedDays({ estimated_days: body.estimated_days });
+    body.estimated_days = est.estimated_days;
+    body.estimated_days_range = est.estimated_days_range;
   }
   db.orders[idx] = { ...before, ...body, updated_date: nowIso() };
   applyOrderBonusesIfNeeded(db, db.orders[idx]);

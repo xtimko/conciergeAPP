@@ -22,6 +22,7 @@ const ORDER_COLUMNS = [
   { key: 'cost_price', header: 'cost_price' },
   { key: 'currency', header: 'currency' },
   { key: 'estimated_days', header: 'estimated_days' },
+  { key: 'estimated_days_range', header: 'estimated_days_range' },
   { key: 'notes', header: 'notes' },
   { key: 'referrer_email', header: 'referrer_email' },
   { key: 'referrer_bonus', header: 'referrer_bonus' },

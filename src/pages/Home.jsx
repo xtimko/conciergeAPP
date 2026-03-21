@@ -49,11 +49,16 @@ export default function Home() {
   return (
     <div className="px-4 pt-6 space-y-5">
       {displayName && (
-        <div className="text-center">
-          <p className="text-sm font-light text-muted-foreground">
+        <div
+          className="text-center"
+          style={{ fontFamily: "'Montserrat', sans-serif" }}
+        >
+          <p className="text-[11px] font-normal tracking-[0.2em] uppercase text-muted-foreground">
             {t('welcome', lang)},
           </p>
-          <p className="text-lg font-medium">{displayName}!</p>
+          <p className="text-base font-normal tracking-[0.08em] text-foreground mt-1.5">
+            {displayName}!
+          </p>
         </div>
       )}
 

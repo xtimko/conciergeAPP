@@ -15,6 +15,7 @@ import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
 import ImageUploadField from '@/components/admin/ImageUploadField';
 import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
+import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
 
 function inDateRange(iso, fromStr, toStr) {
@@ -257,7 +258,11 @@ export default function AdminOrders() {
       cost_price: order.cost_price != null ? order.cost_price : '',
       currency: order.currency || 'RUB',
       status: order.status || 'pending',
-      estimated_days: order.estimated_days || '',
+      estimated_days:
+        order.estimated_days_range ||
+        (order.estimated_days != null && Number(order.estimated_days) > 0
+          ? String(order.estimated_days)
+          : ''),
       notes: order.notes || '',
       image_url: order.image_url || '',
       referrer_bonus: order.referrer_bonus || 0,
@@ -301,11 +306,13 @@ export default function AdminOrders() {
       return;
     }
 
+    const est = normalizeEstimatedDaysInput(form.estimated_days);
     const data = {
       ...form,
       price: form.price ? Number(form.price) : 0,
       cost_price: form.cost_price !== '' && form.cost_price != null ? Number(form.cost_price) : 0,
-      estimated_days: form.estimated_days ? Number(form.estimated_days) : 0,
+      estimated_days: est.estimated_days,
+      estimated_days_range: est.estimated_days_range,
       referrer_bonus: Number(form.referrer_bonus) || 0,
       referral_bonus: Number(form.referral_bonus) || 0,
       client_bonus_mode: form.client_bonus_mode === 'subtract' ? 'subtract' : 'add',
@@ -830,14 +837,20 @@ export default function AdminOrders() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <Label className="text-xs">Срок доставки (дн.)</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                placeholder="10 или 7-14"
                 value={form.estimated_days}
                 onChange={(e) => updateField('estimated_days', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
               />
+              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                Через дефис (например 7-14) — примерный диапазон; клиент увидит окно дат и формулировки
+                «примерно».
+              </p>
             </div>
 
             <ImageUploadField value={form.image_url} onChange={(v) => updateField('image_url', v)} />

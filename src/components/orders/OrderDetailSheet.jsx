@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, Calendar, Tag, Banknote, Clock, Copy, Check } from 'lucide-react';
 import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics';
 import { toast } from 'sonner';
+import { parseEstimatedDaysFromOrder } from '@/lib/estimatedDelivery';
 
 function formatDate(iso, locale) {
   if (!iso) return null;
@@ -99,30 +100,50 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   const { etaLabel, daysLeftLabel } = useMemo(() => {
     if (!order) return { etaLabel: null, daysLeftLabel: null };
     const created = order.created_date ? new Date(order.created_date) : null;
-    const estDays = Number(order.estimated_days || 0);
-    if (!created || !estDays || estDays <= 0) {
+    const { min, max, isRange } = parseEstimatedDaysFromOrder(order);
+    if (!created || !max || max <= 0) {
       return { etaLabel: null, daysLeftLabel: null };
     }
-    const eta = new Date(created.getTime() + estDays * 86400000);
     const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
-    const etaLabel = eta.toLocaleDateString(locale, {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    const fmtLong = (d) =>
+      d.toLocaleDateString(locale, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    const etaStart = new Date(created.getTime() + min * 86400000);
+    const etaEnd = new Date(created.getTime() + max * 86400000);
+    const etaLabel = isRange
+      ? lang === 'ru'
+        ? `примерно ${fmtLong(etaStart)} — ${fmtLong(etaEnd)}`
+        : `approx. ${fmtLong(etaStart)} – ${fmtLong(etaEnd)}`
+      : fmtLong(etaEnd);
+
     const now = new Date();
-    const diffMs = eta.getTime() - now.getTime();
-    const daysLeft = Math.ceil(diffMs / 86400000);
-    let daysLeftLabel;
-    if (order.status === 'delivered' || order.status === 'cancelled') {
-      daysLeftLabel = null;
-    } else if (daysLeft <= 0) {
-      daysLeftLabel = lang === 'ru' ? 'Срок истёк' : 'Past expected date';
-    } else {
-      daysLeftLabel =
-        lang === 'ru'
-          ? `Осталось дней: ${daysLeft}`
-          : `${daysLeft} day(s) left`;
+    const daysToStart = Math.ceil((etaStart.getTime() - now.getTime()) / 86400000);
+    const daysToEnd = Math.ceil((etaEnd.getTime() - now.getTime()) / 86400000);
+    let daysLeftLabel = null;
+    if (order.status !== 'delivered' && order.status !== 'cancelled') {
+      if (daysToEnd <= 0) {
+        daysLeftLabel =
+          lang === 'ru'
+            ? isRange
+              ? 'Срок окна истёк'
+              : 'Срок истёк'
+            : isRange
+              ? 'Expected window passed'
+              : 'Past expected date';
+      } else if (isRange) {
+        const a = Math.max(0, daysToStart);
+        const b = Math.max(0, daysToEnd);
+        daysLeftLabel =
+          lang === 'ru' ? `примерно ${a}–${b} дн.` : `approx. ${a}–${b} days`;
+      } else if (daysToEnd === 1) {
+        daysLeftLabel = lang === 'ru' ? 'Остался 1 день' : '1 day left';
+      } else {
+        daysLeftLabel =
+          lang === 'ru' ? `Осталось дней: ${daysToEnd}` : `${daysToEnd} day(s) left`;
+      }
     }
     return { etaLabel, daysLeftLabel };
   }, [order, lang]);
@@ -139,6 +160,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
 
   const rows = useMemo(() => {
     if (!order) return [];
+    const est = parseEstimatedDaysFromOrder(order);
     const orderDateStr = formatDate(order.created_date, lang);
     const updatedStr = order.updated_date
       ? new Date(order.updated_date).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', {
@@ -171,12 +193,26 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
       },
       {
         icon: Clock,
-        label: lang === 'ru' ? 'Примерная дата получения' : 'Approx. delivery',
+        label:
+          lang === 'ru'
+            ? est.isRange
+              ? 'Примерный срок получения'
+              : 'Примерная дата получения'
+            : est.isRange
+              ? 'Approx. delivery window'
+              : 'Approx. delivery',
         value: etaLabel,
       },
       {
         icon: Calendar,
-        label: lang === 'ru' ? 'До получения' : 'Until delivery',
+        label:
+          lang === 'ru'
+            ? est.isRange
+              ? 'Ориентир по дням'
+              : 'До получения'
+            : est.isRange
+              ? 'Days (estimate)'
+              : 'Until delivery',
         value: daysLeftLabel,
       },
     ].filter((r) => r.value);

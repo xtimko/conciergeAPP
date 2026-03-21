@@ -148,12 +148,24 @@ function App() {
           position="bottom-center"
           richColors
           closeButton
-          offset={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
-          mobileOffset={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
-          className="!z-[10050]"
+          offset={{ bottom: 'calc(7.35rem + env(safe-area-inset-bottom, 0px))' }}
+          mobileOffset={{ bottom: 'calc(7.35rem + env(safe-area-inset-bottom, 0px))' }}
+          className="!z-[10050] [--width:min(100%,22rem)]"
           toastOptions={{
+            unstyled: false,
             classNames: {
-              toast: 'border border-border/60 bg-background text-foreground shadow-lg',
+              toast:
+                '!rounded-2xl !border !border-white/15 dark:!border-white/[0.1] !backdrop-blur-2xl !bg-background/75 dark:!bg-black/45 !text-foreground !shadow-[0_12px_48px_rgba(0,0,0,0.35)] !p-4',
+              title: '!font-medium !text-foreground !text-[13px] !leading-snug',
+              description: '!text-muted-foreground !text-xs !opacity-95',
+              closeButton:
+                '!bg-background/55 !border !border-border/50 !text-foreground hover:!bg-background/80',
+              success:
+                '!border-emerald-500/35 !bg-emerald-500/[0.14] dark:!bg-emerald-500/[0.12]',
+              error: '!border-red-500/35 !bg-red-500/[0.14] dark:!bg-red-500/[0.12]',
+              warning:
+                '!border-amber-500/35 !bg-amber-500/[0.14] dark:!bg-amber-500/[0.12]',
+              info: '!border-sky-500/35 !bg-sky-500/[0.12] dark:!bg-sky-500/[0.1]',
             },
           }}
         />
