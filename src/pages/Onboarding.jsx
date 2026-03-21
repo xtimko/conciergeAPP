@@ -10,16 +10,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { phoneChangeFromRawInput } from '@/lib/phoneRu';
 
 export default function Onboarding() {
   const { lang } = useTheme();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const [phoneDisplay, setPhoneDisplay] = useState('+7(');
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
-    phone: '+7',
+    phone: '',
     city: '',
     address_street: '',
     address_house: '',
@@ -33,14 +35,18 @@ export default function Onboarding() {
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
   const onPhoneChange = (e) => {
-    let v = e.target.value.replace(/[^\d+]/g, '');
-    if (!v.startsWith('+')) v = '+7' + v.replace(/^\+?7?/, '');
-    if (v.length > 12) v = v.slice(0, 12);
-    update('phone', v);
+    const { formatted, storage } = phoneChangeFromRawInput(e.target.value);
+    setPhoneDisplay(formatted === '' ? '+7(' : formatted);
+    update('phone', storage);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const digits = String(form.phone || '').replace(/\D/g, '');
+    if (digits.length < 11) {
+      toast.error(lang === 'ru' ? 'Введите полный номер в формате +7(999)123-45-67' : 'Enter full phone number');
+      return;
+    }
     setLoading(true);
     try {
       await base44.auth.completeOnboarding({
@@ -67,7 +73,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-black px-4 miniapp-header-pt pb-28">
+    <div className="min-h-[100dvh] bg-background px-4 miniapp-header-pt pb-28">
       <div className="max-w-md mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-lg font-normal tracking-widest uppercase mb-2" style={{ fontFamily: "'Montserrat', sans-serif" }}>
@@ -109,11 +115,12 @@ export default function Onboarding() {
               <Label className="text-xs text-muted-foreground">{t('phone', lang)} * (+7)</Label>
               <Input
                 required
-                value={form.phone}
+                value={phoneDisplay}
                 onChange={onPhoneChange}
-                placeholder="+79991234567"
-                className="mt-1 bg-transparent border-border/30"
+                placeholder="+7(999)123-45-67"
+                className="mt-1 bg-transparent border-border/30 font-mono text-[13px]"
                 inputMode="tel"
+                autoComplete="tel"
               />
             </div>
           </GlassCard>

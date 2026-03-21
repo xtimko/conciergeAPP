@@ -59,6 +59,11 @@ const translations = {
       totalReferrals: "Всего приглашённых",
       totalBonusEarned: "Всего начислено",
       shareText: "Присоединяйся к SNKRX с моим кодом",
+      personalData: "Личные данные",
+      addressShortHouse: "Дом",
+      addressShortApt: "Кв.",
+      addressShortFloor: "Эт.",
+      addressShortIntercom: "Домофон",
     },
     en: {
       welcome: "Welcome",
@@ -120,6 +125,11 @@ const translations = {
       totalReferrals: "Total referrals",
       totalBonusEarned: "Total earned",
       shareText: "Join SNKRX with my code",
+      personalData: "Personal",
+      addressShortHouse: "Bld.",
+      addressShortApt: "Apt.",
+      addressShortFloor: "Fl.",
+      addressShortIntercom: "Intercom",
     }
   };
   

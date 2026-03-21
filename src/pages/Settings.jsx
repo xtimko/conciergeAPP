@@ -5,17 +5,27 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Globe, LogOut } from 'lucide-react';
+import { Globe, LogOut, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Settings() {
-  const { lang, setLang } = useTheme();
+  const { lang, setLang, theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
 
   const handleLangChange = async (newLang) => {
     setLang(newLang);
     await base44.auth.updateMe({ language: newLang });
     queryClient.invalidateQueries({ queryKey: ['me'] });
+  };
+
+  const handleThemeChange = async (newTheme) => {
+    setTheme(newTheme);
+    try {
+      await base44.auth.updateMe({ theme: newTheme });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    } catch (e) {
+      toast.error(lang === 'ru' ? 'Не удалось сохранить тему' : 'Could not save theme');
+    }
   };
 
   const handleLogout = () => {
@@ -26,7 +36,42 @@ export default function Settings() {
     <div className="px-4 pt-6 space-y-5">
       <h2 className="text-center text-sm font-medium tracking-wide">{t('settings', lang)}</h2>
 
-      <GlassCard>
+      <GlassCard className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Sun className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('theme', lang)}</span>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={theme === 'light' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleThemeChange('light')}
+            className={
+              theme === 'light'
+                ? 'bg-foreground text-background'
+                : 'glass border-border/30'
+            }
+          >
+            <Sun className="w-3.5 h-3.5 mr-1.5" />
+            {t('lightTheme', lang)}
+          </Button>
+          <Button
+            variant={theme === 'dark' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleThemeChange('dark')}
+            className={
+              theme === 'dark'
+                ? 'bg-foreground text-background'
+                : 'glass border-border/30'
+            }
+          >
+            <Moon className="w-3.5 h-3.5 mr-1.5" />
+            {t('darkTheme', lang)}
+          </Button>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <Globe className="w-4 h-4 text-muted-foreground" />
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('language', lang)}</span>
@@ -50,8 +95,6 @@ export default function Settings() {
           </Button>
         </div>
       </GlassCard>
-
-
 
       <div className="pt-4 text-center">
         <Button

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
@@ -10,6 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { User } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatPhoneMaskFromDigits, parseStoredPhone, phoneChangeFromRawInput } from '@/lib/phoneRu';
+
+const fieldSm = 'h-9 text-sm bg-transparent border-border/30';
 
 export default function Profile() {
   const { lang } = useTheme();
@@ -22,8 +25,18 @@ export default function Profile() {
   });
 
   const [form, setForm] = useState({});
+  const [phoneDisplay, setPhoneDisplay] = useState('+7(');
 
-  React.useEffect(() => {
+  const syncPhoneFromUser = useCallback((u) => {
+    if (!u?.phone) {
+      setPhoneDisplay('+7(');
+      return;
+    }
+    const d = parseStoredPhone(u.phone);
+    setPhoneDisplay(d ? formatPhoneMaskFromDigits(d) : '+7(');
+  }, []);
+
+  useEffect(() => {
     if (user) {
       setForm({
         first_name: user.first_name || '',
@@ -38,8 +51,15 @@ export default function Profile() {
         courier_comment: user.courier_comment || '',
         delivery_address: user.delivery_address || '',
       });
+      syncPhoneFromUser(user);
     }
-  }, [user]);
+  }, [user, syncPhoneFromUser]);
+
+  const handlePhoneChange = (e) => {
+    const { formatted, storage } = phoneChangeFromRawInput(e.target.value);
+    setPhoneDisplay(formatted === '' ? '+7(' : formatted);
+    setForm((f) => ({ ...f, phone: storage }));
+  };
 
   const handleSave = async () => {
     await base44.auth.updateMe(form);
@@ -50,94 +70,208 @@ export default function Profile() {
 
   if (!user) return null;
 
-  const fields = [
-    { key: 'first_name', label: t('firstName', lang), type: 'input' },
-    { key: 'last_name', label: t('lastName', lang), type: 'input' },
-    { key: 'phone', label: t('phone', lang), type: 'input' },
-    { key: 'city', label: t('city', lang), type: 'input' },
-    {
-      key: 'address_street',
-      label: lang === 'ru' ? 'Улица' : 'Street',
-      type: 'input',
-    },
-    {
-      key: 'address_house',
-      label: lang === 'ru' ? 'Дом' : 'Building',
-      type: 'input',
-    },
-    {
-      key: 'address_apartment',
-      label: lang === 'ru' ? 'Квартира' : 'Apartment',
-      type: 'input',
-    },
-    {
-      key: 'address_floor',
-      label: lang === 'ru' ? 'Этаж' : 'Floor',
-      type: 'input',
-    },
-    {
-      key: 'intercom',
-      label: lang === 'ru' ? 'Домофон' : 'Intercom',
-      type: 'input',
-    },
-    {
-      key: 'courier_comment',
-      label: lang === 'ru' ? 'Комментарий курьеру' : 'Courier note',
-      type: 'textarea',
-    },
-    {
-      key: 'delivery_address',
-      label: lang === 'ru' ? 'Адрес одной строкой (дополнительно)' : 'Full address (optional)',
-      type: 'textarea',
-    },
-  ];
+  const phoneReadonly = () => {
+    const d = parseStoredPhone(user.phone);
+    return d ? formatPhoneMaskFromDigits(d) : '—';
+  };
 
   return (
-    <div className="px-4 pt-6 space-y-5">
+    <div className="px-4 pt-6 space-y-4">
       <div className="flex justify-center">
-        <div className="w-16 h-16 rounded-full glass flex items-center justify-center">
-          <User className="w-7 h-7 text-muted-foreground" />
+        <div className="w-14 h-14 rounded-full glass flex items-center justify-center">
+          <User className="w-6 h-6 text-muted-foreground" strokeWidth={1.25} />
         </div>
       </div>
 
-      <GlassCard>
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-            {t('bonusBalance', lang)}
+      <GlassCard className="p-4">
+        <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-border/30">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t('bonusBalance', lang)}</p>
+          <p className="text-xl font-light tabular-nums tracking-tight">
+            {(user.bonus_balance || 0).toLocaleString('ru-RU')}
           </p>
-          <p className="text-2xl font-light">{(user.bonus_balance || 0).toLocaleString('ru-RU')}</p>
         </div>
 
-        <div className="space-y-4">
-          {fields.map((field) => (
-            <div key={field.key}>
-              <Label className="text-xs text-muted-foreground">{field.label}</Label>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2.5">{t('personalData', lang)}</p>
+
+        <div className="space-y-2.5">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[10px] text-muted-foreground">{t('firstName', lang)}</Label>
               {editing ? (
-                field.type === 'textarea' ? (
-                  <Textarea
-                    value={form[field.key] || ''}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                    className="mt-1 min-h-[72px] bg-transparent border-border/30 resize-none"
-                  />
-                ) : (
-                  <Input
-                    value={form[field.key] || ''}
-                    onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                    className="mt-1 bg-transparent border-border/30"
-                  />
-                )
+                <Input
+                  value={form.first_name}
+                  onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
               ) : (
-                <p className="text-sm font-light mt-1">{user[field.key] || '—'}</p>
+                <p className="text-sm font-light mt-0.5 leading-snug">{user.first_name || '—'}</p>
               )}
             </div>
-          ))}
+            <div>
+              <Label className="text-[10px] text-muted-foreground">{t('lastName', lang)}</Label>
+              {editing ? (
+                <Input
+                  value={form.last_name}
+                  onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
+              ) : (
+                <p className="text-sm font-light mt-0.5 leading-snug">{user.last_name || '—'}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[10px] text-muted-foreground">{t('phone', lang)}</Label>
+            {editing ? (
+              <Input
+                value={phoneDisplay}
+                onChange={handlePhoneChange}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="+7(999)123-45-67"
+                className={`mt-0.5 font-mono text-[13px] ${fieldSm}`}
+              />
+            ) : (
+              <p className="text-sm font-light mt-0.5 font-mono tracking-tight">{phoneReadonly()}</p>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-[10px] text-muted-foreground">{t('city', lang)}</Label>
+            {editing ? (
+              <Input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                className={`mt-0.5 ${fieldSm}`}
+              />
+            ) : (
+              <p className="text-sm font-light mt-0.5">{user.city || '—'}</p>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-[10px] text-muted-foreground">{lang === 'ru' ? 'Улица' : 'Street'}</Label>
+            {editing ? (
+              <Input
+                value={form.address_street}
+                onChange={(e) => setForm({ ...form, address_street: e.target.value })}
+                className={`mt-0.5 ${fieldSm}`}
+              />
+            ) : (
+              <p className="text-sm font-light mt-0.5">{user.address_street || '—'}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+            <div>
+              <Label className="text-[10px] text-muted-foreground">{t('addressShortHouse', lang)}</Label>
+              {editing ? (
+                <Input
+                  value={form.address_house}
+                  onChange={(e) => setForm({ ...form, address_house: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
+              ) : (
+                <p className="text-sm font-light mt-0.5">{user.address_house || '—'}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">{t('addressShortApt', lang)}</Label>
+              {editing ? (
+                <Input
+                  value={form.address_apartment}
+                  onChange={(e) => setForm({ ...form, address_apartment: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
+              ) : (
+                <p className="text-sm font-light mt-0.5">{user.address_apartment || '—'}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">{t('addressShortFloor', lang)}</Label>
+              {editing ? (
+                <Input
+                  value={form.address_floor}
+                  onChange={(e) => setForm({ ...form, address_floor: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
+              ) : (
+                <p className="text-sm font-light mt-0.5">{user.address_floor || '—'}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">{t('addressShortIntercom', lang)}</Label>
+              {editing ? (
+                <Input
+                  value={form.intercom}
+                  onChange={(e) => setForm({ ...form, intercom: e.target.value })}
+                  className={`mt-0.5 ${fieldSm}`}
+                />
+              ) : (
+                <p className="text-sm font-light mt-0.5">{user.intercom || '—'}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[10px] text-muted-foreground">
+              {lang === 'ru' ? 'Комментарий курьеру' : 'Courier note'}
+            </Label>
+            {editing ? (
+              <Textarea
+                value={form.courier_comment}
+                onChange={(e) => setForm({ ...form, courier_comment: e.target.value })}
+                className="mt-0.5 min-h-[52px] text-sm bg-transparent border-border/30 resize-none py-2"
+              />
+            ) : (
+              <p className="text-sm font-light mt-0.5 whitespace-pre-wrap">{user.courier_comment || '—'}</p>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-[10px] text-muted-foreground">
+              {lang === 'ru' ? 'Адрес одной строкой' : 'Full address (optional)'}
+            </Label>
+            {editing ? (
+              <Textarea
+                value={form.delivery_address}
+                onChange={(e) => setForm({ ...form, delivery_address: e.target.value })}
+                className="mt-0.5 min-h-[44px] text-sm bg-transparent border-border/30 resize-none py-2"
+              />
+            ) : (
+              <p className="text-sm font-light mt-0.5 whitespace-pre-wrap">{user.delivery_address || '—'}</p>
+            )}
+          </div>
         </div>
       </GlassCard>
 
-      <div className="text-center">
+      <div className="text-center pt-1">
         {editing ? (
           <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => setEditing(false)} className="glass border-border/30">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditing(false);
+                if (user) {
+                  setForm({
+                    first_name: user.first_name || '',
+                    last_name: user.last_name || '',
+                    phone: user.phone || '',
+                    city: user.city || '',
+                    address_street: user.address_street || '',
+                    address_house: user.address_house || '',
+                    address_apartment: user.address_apartment || '',
+                    address_floor: user.address_floor || '',
+                    intercom: user.intercom || '',
+                    courier_comment: user.courier_comment || '',
+                    delivery_address: user.delivery_address || '',
+                  });
+                  syncPhoneFromUser(user);
+                }
+              }}
+              className="glass border-border/30"
+            >
               {t('cancel', lang)}
             </Button>
             <Button onClick={handleSave} className="bg-foreground text-background hover:bg-foreground/90">

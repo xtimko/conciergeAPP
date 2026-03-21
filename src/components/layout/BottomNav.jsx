@@ -33,7 +33,7 @@ export default function BottomNav({ isAdmin }) {
               <div
                 className={`p-2 rounded-2xl transition-all duration-300 ${
                   isActive
-                    ? 'bg-white/[0.08] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_0_1px_rgba(255,255,255,0.06)]'
+                    ? 'bg-foreground/10 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(128,128,128,0.15)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
                     : 'bg-transparent'
                 }`}
               >

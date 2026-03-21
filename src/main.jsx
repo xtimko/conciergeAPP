@@ -9,9 +9,6 @@ if (window.Telegram?.WebApp) {
   const tg = window.Telegram.WebApp
   tg.ready()
   tg.expand()
-  tg.setHeaderColor?.('#000000')
-  tg.setBackgroundColor?.('#000000')
-  tg.setBottomBarColor?.('#000000')
 }
 initTelegramSafeAreas()
 
