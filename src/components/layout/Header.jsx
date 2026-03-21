@@ -6,11 +6,8 @@ export default function Header({ isAdmin }) {
   const navigate = useNavigate();
 
   return (
-    <header
-      className="sticky top-0 z-40 glass-chrome"
-      style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 10px)' }}
-    >
-      <div className="px-4 flex items-center justify-center min-h-[52px] max-w-lg mx-auto relative pb-3">
+    <header className="sticky top-0 z-40 glass-chrome miniapp-header-pt">
+      <div className="px-4 flex items-center justify-center min-h-[48px] max-w-lg mx-auto relative pb-3">
         <div className="flex items-center gap-2">
           <img
             src="https://media.base44.com/images/public/69bbc4b13118d84816c867de/5ccc028bc_IMG_9731.png"

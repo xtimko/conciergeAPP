@@ -268,7 +268,24 @@ html:not(.dark) #root {
 }
 
 @layer utilities {
+  /* Контент не уезжает под таббар + home indicator + закругление экрана */
   .miniapp-safe-main {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+    padding-bottom: calc(
+      env(safe-area-inset-bottom, 0px) + var(--tma-content-bottom, 0px) + 6.25rem
+    );
+  }
+
+  /* Верх шапки: чёлка/статус (env) + зона под кнопки TG + воздух */
+  .miniapp-header-pt {
+    padding-top: calc(
+      env(safe-area-inset-top, 0px) + var(--tma-content-top, 0px) + 14px
+    );
+  }
+
+  /* Низ таббара: поднять иконки выше закругления */
+  .miniapp-tabbar-pb {
+    padding-bottom: calc(
+      env(safe-area-inset-bottom, 0px) + var(--tma-content-bottom, 0px) + 18px
+    );
   }
 }

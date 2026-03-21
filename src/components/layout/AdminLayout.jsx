@@ -13,10 +13,7 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-[100dvh] bg-black font-inter text-foreground">
-      <header
-        className="sticky top-0 z-40 glass-chrome"
-        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 10px)' }}
-      >
+      <header className="sticky top-0 z-40 glass-chrome miniapp-header-pt">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center h-11 px-4 gap-3">
             <Link
