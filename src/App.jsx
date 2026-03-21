@@ -67,7 +67,7 @@ const ThemeInitializer = ({ children }) => {
 };
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -83,9 +83,17 @@ const AuthenticatedApp = () => {
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
+    }
+    if (authError.type === 'auth_required') {
+      // Не вызывать navigateToLogin() при рендере — иначе пустой экран в браузере.
+      return (
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-background p-6 text-center">
+          <h1 className="mb-2 text-lg font-normal tracking-widest uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>Concierge</h1>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Откройте приложение через <strong>Telegram</strong> (Mini App у бота). В обычном браузере вход недоступен.
+          </p>
+        </div>
+      );
     }
   }
 

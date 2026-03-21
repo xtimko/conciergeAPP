@@ -1,5 +1,14 @@
 // @ts-nocheck
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8787/api";
+/** База API: из .env или тот же домен что и фронт (прод без localhost на телефоне). */
+function getApiBase() {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL;
+  if (fromEnv) return String(fromEnv).replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/api`;
+  }
+  return "http://localhost:8787/api";
+}
+
 const TOKEN_KEY = "concierge_jwt";
 
 const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
@@ -8,7 +17,7 @@ const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 async function request(path, options = {}) {
   const token = getToken();
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
