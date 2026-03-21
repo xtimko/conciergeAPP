@@ -5,7 +5,7 @@ import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Pencil, ClipboardList, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -180,6 +180,16 @@ export default function AdminClients() {
                   </div>
                 );
               })}
+              <DialogFooter className="flex-col gap-2 sm:flex-col pt-4 pb-1 px-0">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full h-11"
+                  onClick={() => setDetailClient(null)}
+                >
+                  Закрыть
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

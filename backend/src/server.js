@@ -304,6 +304,7 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
     item_category: body.item_category || "other",
     brand: body.brand || "",
     price: Number(body.price || 0),
+    cost_price: Number(body.cost_price || 0),
     currency: body.currency || "RUB",
     status: body.status || "pending",
     estimated_days: Number(body.estimated_days || 0),
@@ -397,6 +398,10 @@ function migrateDbOnce() {
     }
     if (o.client_bonus_mode === undefined) {
       o.client_bonus_mode = "add";
+      changed = true;
+    }
+    if (o.cost_price === undefined) {
+      o.cost_price = 0;
       changed = true;
     }
   }

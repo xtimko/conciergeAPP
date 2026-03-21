@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from '@/components/ui/sheet';
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/lib/ThemeContext';
 import { t, getStatusLabel, getCategoryLabel } from '@/lib/i18n';
@@ -133,94 +133,92 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   }, [order, lang, etaLabel, daysLeftLabel]);
 
   return (
-    <Sheet
+    <Drawer
       open={open && !!order}
       onOpenChange={(isOpen) => {
         if (!isOpen) onClose?.();
       }}
+      shouldScaleBackground={false}
     >
-      <SheetContent
-        side="bottom"
-        className="rounded-t-[1.75rem] max-h-[85vh] overflow-y-auto border-0 bg-background pb-[calc(env(safe-area-inset-bottom,0px)+1.25rem)] pt-2"
-      >
+      <DrawerContent className="max-h-[88vh] overflow-y-auto border-0 bg-background px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-1 outline-none">
         {!order ? null : (
           <>
-        <SheetHeader className="pb-4">
-          <SheetTitle className="text-base font-medium tracking-wide pr-8">
-            {order.item_name}
-          </SheetTitle>
-          <Badge className={`w-fit text-xs ${statusStyles[order.status] || ''}`}>
-            {getStatusLabel(order.status, lang)}
-          </Badge>
-        </SheetHeader>
+            <DrawerHeader className="pb-3 text-left space-y-2">
+              <DrawerTitle className="text-base font-medium tracking-wide pr-6">
+                {order.item_name}
+              </DrawerTitle>
+              <Badge className={`w-fit text-xs ${statusStyles[order.status] || ''}`}>
+                {getStatusLabel(order.status, lang)}
+              </Badge>
+            </DrawerHeader>
 
-        {order.image_url && (
-          <div className="rounded-xl overflow-hidden mb-4">
-            <img src={order.image_url} alt={order.item_name} className="w-full h-48 object-cover" />
-          </div>
-        )}
-
-        <div className="flex items-start justify-between gap-2 py-2 border-b border-border/10 mb-2">
-          <div className="flex items-center gap-2 text-muted-foreground min-w-0">
-            <Tag className="w-4 h-4 shrink-0" />
-            <span className="text-xs">{lang === 'ru' ? 'ID заказа' : 'Order ID'}</span>
-          </div>
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="text-xs font-mono text-right break-all">{order.id}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 shrink-0"
-              onClick={copyId}
-              aria-label={lang === 'ru' ? 'Копировать ID' : 'Copy ID'}
-            >
-              {idCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {rows.map((row, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between py-2 border-b border-border/10 last:border-0"
-            >
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <row.icon className="w-4 h-4" />
-                <span className="text-xs">{row.label}</span>
+            {order.image_url && (
+              <div className="rounded-xl overflow-hidden mb-3">
+                <img src={order.image_url} alt={order.item_name} className="w-full max-h-44 object-cover" />
               </div>
-              <span className="text-sm font-light text-right max-w-[60%]">{row.value}</span>
+            )}
+
+            <div className="flex items-start justify-between gap-2 py-2 border-b border-border/10 mb-2">
+              <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                <Tag className="w-4 h-4 shrink-0" />
+                <span className="text-xs">{lang === 'ru' ? 'ID заказа' : 'Order ID'}</span>
+              </div>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="text-[11px] font-mono text-right break-all">{order.id}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={copyId}
+                  aria-label={lang === 'ru' ? 'Копировать ID' : 'Copy ID'}
+                >
+                  {idCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
-          ))}
-        </div>
 
-        {order.notes && (
-          <div className="mt-4 p-3 rounded-xl bg-muted/30">
-            <p className="text-xs text-muted-foreground">{t('notes', lang)}</p>
-            <p className="text-sm font-light mt-1">{order.notes}</p>
-          </div>
-        )}
+            <div className="space-y-2">
+              {rows.map((row, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-2 py-1.5 border-b border-border/10 last:border-0"
+                >
+                  <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                    <row.icon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="text-[11px]">{row.label}</span>
+                  </div>
+                  <span className="text-xs font-light text-right max-w-[58%] leading-snug">{row.value}</span>
+                </div>
+              ))}
+            </div>
 
-        {readOnly && (
-          <p className="text-[10px] text-muted-foreground mt-4 text-center">
-            {lang === 'ru' ? 'Только просмотр' : 'Read only'}
-          </p>
-        )}
+            {order.notes && (
+              <div className="mt-3 p-3 rounded-xl bg-muted/30">
+                <p className="text-[11px] text-muted-foreground">{t('notes', lang)}</p>
+                <p className="text-sm font-light mt-1">{order.notes}</p>
+              </div>
+            )}
 
-        <SheetFooter className="flex-col gap-2 sm:flex-col pt-6 pb-1">
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full h-12 text-base"
-            onClick={() => onClose?.()}
-          >
-            {lang === 'ru' ? 'Закрыть' : 'Close'}
-          </Button>
-        </SheetFooter>
+            {readOnly && (
+              <p className="text-[10px] text-muted-foreground mt-3 text-center">
+                {lang === 'ru' ? 'Только просмотр' : 'Read only'}
+              </p>
+            )}
+
+            <DrawerFooter className="flex-col gap-2 px-0 pt-4 pb-0 sm:flex-col">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full h-11 text-base"
+                onClick={() => onClose?.()}
+              >
+                {lang === 'ru' ? 'Закрыть' : 'Close'}
+              </Button>
+            </DrawerFooter>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 }

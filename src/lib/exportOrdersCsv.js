@@ -19,6 +19,7 @@ const ORDER_COLUMNS = [
   { key: 'item_category', header: 'item_category' },
   { key: 'status', header: 'status' },
   { key: 'price', header: 'price' },
+  { key: 'cost_price', header: 'cost_price' },
   { key: 'currency', header: 'currency' },
   { key: 'estimated_days', header: 'estimated_days' },
   { key: 'notes', header: 'notes' },

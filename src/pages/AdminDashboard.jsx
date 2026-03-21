@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, Users, Package, TrendingUp } from 'lucide-react';
+import { ClipboardList, Users, Package, TrendingUp, Wallet } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { data: orders = [], isPending: ordersLoading } = useQuery({
@@ -19,20 +19,25 @@ export default function AdminDashboard() {
   const loading = ordersLoading || clientsLoading;
 
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.price || 0), 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.price || 0), 0);
+  const totalProfit = orders.reduce(
+    (sum, o) => sum + (Number(o.price || 0) - Number(o.cost_price || 0)),
+    0,
+  );
 
   const stats = [
-    { icon: ClipboardList, label: 'Total Orders', value: orders.length },
-    { icon: Package, label: 'Active Orders', value: activeOrders.length },
-    { icon: Users, label: 'Clients', value: clients.length },
-    { icon: TrendingUp, label: 'Revenue', value: `${totalRevenue.toLocaleString()} ₽` },
+    { icon: ClipboardList, label: 'Заказы', value: orders.length },
+    { icon: Package, label: 'Активные', value: activeOrders.length },
+    { icon: Users, label: 'Клиенты', value: clients.length },
+    { icon: TrendingUp, label: 'Выручка', value: `${totalRevenue.toLocaleString('ru-RU')} ₽` },
+    { icon: Wallet, label: 'Прибыль', value: `${totalProfit.toLocaleString('ru-RU')} ₽` },
   ];
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         {loading
-          ? [1, 2, 3, 4].map((i) => (
+          ? [1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="rounded-[1.35rem] border border-border/20 p-4">
                 <Skeleton className="h-5 w-5 mx-auto mb-3 rounded-md" />
                 <Skeleton className="h-7 w-16 mx-auto mb-2" />

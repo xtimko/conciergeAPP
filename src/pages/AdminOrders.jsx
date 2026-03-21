@@ -46,6 +46,7 @@ const emptyOrder = {
   item_category: 'footwear',
   brand: '',
   price: '',
+  cost_price: '',
   currency: 'RUB',
   status: 'pending',
   estimated_days: '',
@@ -253,6 +254,7 @@ export default function AdminOrders() {
       item_category: order.item_category || 'footwear',
       brand: order.brand || '',
       price: order.price || '',
+      cost_price: order.cost_price != null ? order.cost_price : '',
       currency: order.currency || 'RUB',
       status: order.status || 'pending',
       estimated_days: order.estimated_days || '',
@@ -302,6 +304,7 @@ export default function AdminOrders() {
     const data = {
       ...form,
       price: form.price ? Number(form.price) : 0,
+      cost_price: form.cost_price !== '' && form.cost_price != null ? Number(form.cost_price) : 0,
       estimated_days: form.estimated_days ? Number(form.estimated_days) : 0,
       referrer_bonus: Number(form.referrer_bonus) || 0,
       referral_bonus: Number(form.referral_bonus) || 0,
@@ -757,6 +760,17 @@ export default function AdminOrders() {
                 value={form.price}
                 onChange={(e) => updateField('price', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Себестоимость</Label>
+              <Input
+                type="number"
+                min={0}
+                value={form.cost_price}
+                onChange={(e) => updateField('cost_price', e.target.value)}
+                className="mt-1 bg-transparent border-border/30"
+                placeholder="0"
               />
             </div>
             <div>
