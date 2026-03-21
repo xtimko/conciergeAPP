@@ -107,8 +107,9 @@
 }
 
 /* ─── Liquid glass (карточки, диалоги) — без жёсткой рамки ─── */
+/* Не используем position:relative — ломает position:fixed у Radix Dialog/Sheet с классом .glass */
 .dark .glass {
-  position: relative;
+  isolation: isolate;
   border: none !important;
   background:
     linear-gradient(
@@ -136,7 +137,7 @@
 }
 
 .light .glass {
-  position: relative;
+  isolation: isolate;
   border: none !important;
   background:
     linear-gradient(135deg, rgba(0, 0, 0, 0.035) 0%, rgba(255, 255, 255, 0.5) 100%),

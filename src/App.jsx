@@ -146,7 +146,7 @@ function App() {
           position="top-center"
           richColors
           closeButton
-          className="!z-[520]"
+          className="!z-[10050]"
           toastOptions={{
             classNames: {
               toast: 'border border-border/60 bg-background text-foreground shadow-lg',

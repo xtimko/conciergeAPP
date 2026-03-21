@@ -2,18 +2,21 @@ import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, Users, Package, TrendingUp } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isPending: ordersLoading } = useQuery({
     queryKey: ['allOrders'],
-    queryFn: () => base44.entities.Order.list('-created_date'),
+    queryFn: () => base44.entities.Order.list(),
   });
 
-  const { data: clients = [] } = useQuery({
+  const { data: clients = [], isPending: clientsLoading } = useQuery({
     queryKey: ['allClients'],
     queryFn: () => base44.entities.User.list(),
   });
+
+  const loading = ordersLoading || clientsLoading;
 
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
   const totalRevenue = orders.reduce((sum, o) => sum + (o.price || 0), 0);
@@ -28,26 +31,48 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        {stats.map((stat, i) => (
-          <GlassCard key={i} className="text-center">
-            <stat.icon className="w-5 h-5 mx-auto text-muted-foreground mb-2" />
-            <p className="text-xl font-light">{stat.value}</p>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">{stat.label}</p>
-          </GlassCard>
-        ))}
+        {loading
+          ? [1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-[1.35rem] border border-border/20 p-4">
+                <Skeleton className="h-5 w-5 mx-auto mb-3 rounded-md" />
+                <Skeleton className="h-7 w-16 mx-auto mb-2" />
+                <Skeleton className="h-3 w-24 mx-auto" />
+              </div>
+            ))
+          : stats.map((stat, i) => (
+              <GlassCard key={i} className="text-center">
+                <stat.icon className="w-5 h-5 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xl font-light">{stat.value}</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">{stat.label}</p>
+              </GlassCard>
+            ))}
       </div>
 
       <GlassCard>
         <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Recent Orders</h3>
-        {orders.slice(0, 10).map(order => (
-          <div key={order.id} className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
-            <div>
-              <p className="text-sm font-light">{order.item_name}</p>
-              <p className="text-xs text-muted-foreground">{order.client_name || order.client_email}</p>
-            </div>
-            <span className="text-xs text-muted-foreground">{order.status}</span>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex justify-between gap-2 py-2 border-b border-border/10 last:border-0">
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-full max-w-[200px]" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-4 w-16 shrink-0" />
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          orders.slice(0, 10).map((order) => (
+            <div key={order.id} className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
+              <div>
+                <p className="text-sm font-light">{order.item_name}</p>
+                <p className="text-xs text-muted-foreground">{order.client_name || order.client_email}</p>
+              </div>
+              <span className="text-xs text-muted-foreground">{order.status}</span>
+            </div>
+          ))
+        )}
       </GlassCard>
     </div>
   );

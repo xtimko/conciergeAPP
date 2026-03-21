@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Pencil, ClipboardList } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search, Pencil, ClipboardList, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
+import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -16,14 +18,15 @@ export default function AdminClients() {
   const [editForm, setEditForm] = useState({});
   const [showOrders, setShowOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [copiedEmail, setCopiedEmail] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: clients = [] } = useQuery({
+  const { data: clients = [], isPending: clientsLoading } = useQuery({
     queryKey: ['allClients'],
     queryFn: () => base44.entities.User.list(),
   });
 
-  const { data: clientOrders = [] } = useQuery({
+  const { data: clientOrders = [], isPending: clientOrdersLoading } = useQuery({
     queryKey: ['clientOrders', selectedClient?.email],
     queryFn: () => base44.entities.Order.filter({ client_email: selectedClient.email }),
     enabled: !!selectedClient?.email && showOrders,
@@ -53,13 +56,34 @@ export default function AdminClients() {
   };
 
   const handleSave = async () => {
-    await base44.entities.User.update(selectedClient.id, {
-      ...editForm,
-      bonus_balance: Number(editForm.bonus_balance) || 0,
-    });
-    queryClient.invalidateQueries({ queryKey: ['allClients'] });
-    toast.success('Client updated');
-    setSelectedClient(null);
+    try {
+      await base44.entities.User.update(selectedClient.id, {
+        ...editForm,
+        bonus_balance: Number(editForm.bonus_balance) || 0,
+      });
+      queryClient.invalidateQueries({ queryKey: ['allClients'] });
+      toast.success('Client updated');
+      hapticSuccess();
+      setSelectedClient(null);
+    } catch (e) {
+      hapticError();
+      toast.error(e?.message || 'Не удалось сохранить');
+    }
+  };
+
+  const copyEmail = async (email, e) => {
+    e?.stopPropagation();
+    if (!email) return;
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedEmail(email);
+      hapticSuccess();
+      toast.success('Email скопирован');
+      setTimeout(() => setCopiedEmail(null), 2000);
+    } catch {
+      hapticError();
+      toast.error('Не удалось скопировать');
+    }
   };
 
   const viewOrders = (client) => {
@@ -80,35 +104,75 @@ export default function AdminClients() {
       </div>
 
       <div className="space-y-2">
-        {filtered.map((client) => (
-          <GlassCard key={client.id} className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {client.first_name || ''} {client.last_name || client.full_name || client.email}
-                </p>
-                <p className="text-xs text-muted-foreground">{client.email}</p>
-                <div className="flex gap-3 mt-1">
-                  {client.phone && <span className="text-xs text-muted-foreground">{client.phone}</span>}
-                  {client.city && <span className="text-xs text-muted-foreground">{client.city}</span>}
+        {clientsLoading ? (
+          [1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-[1.35rem] border border-border/20 p-4 flex gap-3">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-64 max-w-full" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="h-11 w-11 rounded-lg shrink-0" />
+            </div>
+          ))
+        ) : (
+          filtered.map((client) => (
+            <GlassCard key={client.id} className="p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {client.first_name || ''} {client.last_name || client.full_name || client.email}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                  <div className="flex gap-3 mt-1 flex-wrap">
+                    {client.phone && <span className="text-xs text-muted-foreground">{client.phone}</span>}
+                    {client.city && <span className="text-xs text-muted-foreground">{client.city}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <span className="text-xs font-light mr-1 hidden sm:inline">
+                    {(client.bonus_balance || 0).toLocaleString()} pts
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => copyEmail(client.email, e)}
+                    className="h-11 w-11 min-h-[44px] min-w-[44px]"
+                    aria-label="Копировать email"
+                  >
+                    {copiedEmail === client.email ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => viewOrders(client)}
+                    className="h-11 w-11 min-h-[44px] min-w-[44px]"
+                    aria-label="Заказы клиента"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openEdit(client)}
+                    className="h-11 w-11 min-h-[44px] min-w-[44px]"
+                    aria-label="Редактировать клиента"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-light mr-2">{(client.bonus_balance || 0).toLocaleString()} pts</span>
-                <Button variant="ghost" size="icon" onClick={() => viewOrders(client)} className="h-8 w-8">
-                  <ClipboardList className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(client)} className="h-8 w-8">
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        )}
       </div>
 
       <Dialog open={!!selectedClient && !showOrders} onOpenChange={() => setSelectedClient(null)}>
-        <DialogContent className="glass border-border/20 max-w-md">
+        <DialogContent className="max-w-md border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">Edit Client</DialogTitle>
           </DialogHeader>
@@ -181,21 +245,31 @@ export default function AdminClients() {
           setShowOrders(false);
         }}
       >
-        <DialogContent className="glass border-border/20 max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
               Заказы — {selectedClient?.first_name || selectedClient?.full_name || selectedClient?.email}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-4">
-            {clientOrders.length === 0 ? (
+            {clientOrdersLoading ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="rounded-[1.35rem] border border-border/20 p-3 flex gap-3">
+                  <Skeleton className="h-14 w-14 rounded-lg shrink-0" />
+                  <div className="flex-1 space-y-2 py-1">
+                    <Skeleton className="h-4 w-full max-w-[200px]" />
+                    <Skeleton className="h-3 w-full max-w-[120px]" />
+                  </div>
+                </div>
+              ))
+            ) : clientOrders.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Нет заказов</p>
             ) : (
               clientOrders.map((order) => (
                 <GlassCard key={order.id} className="p-3">
                   <button
                     type="button"
-                    className="w-full flex items-center gap-3 text-left"
+                    className="w-full flex items-center gap-3 text-left min-h-[3.5rem] py-1"
                     onClick={() => setSelectedOrder(order)}
                   >
                     {order.image_url ? (

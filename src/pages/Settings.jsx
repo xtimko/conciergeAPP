@@ -5,7 +5,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Globe, LogOut, Moon, Sun } from 'lucide-react';
+import { Globe, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Settings() {
@@ -95,17 +95,6 @@ export default function Settings() {
           </Button>
         </div>
       </GlassCard>
-
-      <div className="pt-4 text-center">
-        <Button
-          variant="ghost"
-          onClick={handleLogout}
-          className="text-sm font-light text-destructive hover:text-destructive/80"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          {t('logout', lang)}
-        </Button>
-      </div>
     </div>
   );
 }

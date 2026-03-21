@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
@@ -7,11 +7,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
 import ImageUploadField from '@/components/admin/ImageUploadField';
+import { downloadOrdersCsv } from '@/lib/exportOrdersCsv';
+import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
+
+function inDateRange(iso, fromStr, toStr) {
+  if (!fromStr && !toStr) return true;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return true;
+  if (fromStr) {
+    const from = new Date(`${fromStr}T00:00:00`);
+    if (d < from) return false;
+  }
+  if (toStr) {
+    const to = new Date(`${toStr}T23:59:59.999`);
+    if (d > to) return false;
+  }
+  return true;
+}
 
 const STATUSES = ['pending', 'confirmed', 'sourcing', 'shipping', 'awaiting_pickup', 'delivered', 'cancelled'];
 const TERMINAL_STATUSES = ['delivered', 'cancelled'];
@@ -61,9 +80,16 @@ export default function AdminOrders() {
   /** быстрая смена статуса */
   const [statusQuick, setStatusQuick] = useState(null);
   const [quickStatusValue, setQuickStatusValue] = useState('pending');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkApplyStatus, setBulkApplyStatus] = useState('pending');
+  const [copiedId, setCopiedId] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isPending: ordersLoading } = useQuery({
     queryKey: ['allOrders'],
     queryFn: () => base44.entities.Order.list(),
   });
@@ -88,15 +114,87 @@ export default function AdminOrders() {
     return orders.filter((o) => {
       const matchSearch =
         !q ||
-        [o.item_name, o.client_name, o.client_email, o.brand, o.status].some((f) =>
-          f?.toLowerCase().includes(q),
+        [o.item_name, o.client_name, o.client_email, o.brand, o.status, o.id].some((f) =>
+          String(f || '')
+            .toLowerCase()
+            .includes(q),
         );
       if (!matchSearch) return false;
       if (orderFilter === 'active') return isActiveOrder(o);
       if (orderFilter === 'completed') return !isActiveOrder(o);
       return true;
+    }).filter((o) => {
+      if (statusFilter && o.status !== statusFilter) return false;
+      if (!inDateRange(o.created_date, dateFrom, dateTo)) return false;
+      return true;
     });
-  }, [orders, search, orderFilter]);
+  }, [orders, search, orderFilter, statusFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (!selectionMode) setSelectedIds(new Set());
+  }, [selectionMode]);
+
+  const toggleSelected = useCallback((id) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+    hapticImpact('light');
+  }, []);
+
+  const selectAllInView = useCallback(() => {
+    setSelectedIds(new Set(filtered.map((o) => o.id)));
+    hapticSelection();
+  }, [filtered]);
+
+  const copyOrderId = async (id, e) => {
+    e?.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      hapticSuccess();
+      toast.success('ID заказа скопирован');
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      hapticError();
+      toast.error('Не удалось скопировать');
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (!filtered.length) {
+      toast.error('Нет заказов для экспорта');
+      return;
+    }
+    downloadOrdersCsv(
+      filtered,
+      `orders-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    hapticSuccess();
+    toast.success('CSV сохранён');
+  };
+
+  const applyBulkStatus = async () => {
+    const ids = [...selectedIds].filter((id) => filtered.some((o) => o.id === id));
+    if (!ids.length) {
+      toast.error('Выберите заказы');
+      return;
+    }
+    try {
+      await Promise.all(ids.map((id) => base44.entities.Order.update(id, { status: bulkApplyStatus })));
+      queryClient.invalidateQueries({ queryKey: ['allOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['allClients'] });
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      hapticSuccess();
+      toast.success(`Обновлено заказов: ${ids.length}`);
+    } catch (e) {
+      hapticError();
+      toast.error(e?.message || 'Ошибка массового обновления');
+    }
+  };
 
   const openNew = () => {
     setEditingOrder(null);
@@ -167,10 +265,12 @@ export default function AdminOrders() {
 
   const handleSave = async () => {
     if (!editingOrder && (!selectedClientId || !form.client_email)) {
+      hapticError();
       toast.error('Выберите клиента из списка');
       return;
     }
     if (!form.item_name?.trim()) {
+      hapticError();
       toast.error('Укажите название товара');
       return;
     }
@@ -184,17 +284,22 @@ export default function AdminOrders() {
       client_bonus_mode: form.client_bonus_mode === 'subtract' ? 'subtract' : 'add',
     };
 
-    if (editingOrder) {
-      await base44.entities.Order.update(editingOrder.id, data);
-      toast.success('Заказ обновлён');
-    } else {
-      await base44.entities.Order.create(data);
-      toast.success('Заказ создан');
+    try {
+      if (editingOrder) {
+        await base44.entities.Order.update(editingOrder.id, data);
+        toast.success('Заказ обновлён');
+      } else {
+        await base44.entities.Order.create(data);
+        toast.success('Заказ создан');
+      }
+      hapticSuccess();
+      queryClient.invalidateQueries({ queryKey: ['allOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['allClients'] });
+      setDialogOpen(false);
+    } catch (e) {
+      hapticError();
+      toast.error(e?.message || 'Не удалось сохранить');
     }
-
-    queryClient.invalidateQueries({ queryKey: ['allOrders'] });
-    queryClient.invalidateQueries({ queryKey: ['allClients'] });
-    setDialogOpen(false);
   };
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -209,17 +314,23 @@ export default function AdminOrders() {
 
   const saveQuickStatus = async () => {
     if (!statusQuick) return;
-    await base44.entities.Order.update(statusQuick.id, { status: quickStatusValue });
-    toast.success('Статус обновлён');
-    queryClient.invalidateQueries({ queryKey: ['allOrders'] });
-    queryClient.invalidateQueries({ queryKey: ['allClients'] });
-    setStatusQuick(null);
+    try {
+      await base44.entities.Order.update(statusQuick.id, { status: quickStatusValue });
+      toast.success('Статус обновлён');
+      hapticSuccess();
+      queryClient.invalidateQueries({ queryKey: ['allOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['allClients'] });
+      setStatusQuick(null);
+    } catch (e) {
+      hapticError();
+      toast.error(e?.message || 'Не удалось обновить статус');
+    }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 relative">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={search}
@@ -228,9 +339,108 @@ export default function AdminOrders() {
             className="pl-10 bg-transparent glass border-border/30"
           />
         </div>
-        <Button onClick={openNew} size="sm" className="bg-foreground text-background hover:bg-foreground/90">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleExportCsv}
+          className="glass border-border/30 shrink-0 h-10 px-3"
+          title="Экспорт CSV"
+        >
+          <Download className="w-4 h-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={selectionMode ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => {
+            setSelectionMode((v) => !v);
+            hapticImpact('light');
+          }}
+          className={
+            selectionMode
+              ? 'bg-foreground text-background shrink-0 h-10'
+              : 'glass border-border/30 shrink-0 h-10'
+          }
+          title="Массовая смена статуса"
+        >
+          <ListTodo className="w-4 h-4" />
+        </Button>
+        <Button onClick={openNew} size="sm" className="bg-foreground text-background hover:bg-foreground/90 shrink-0 h-10">
           <Plus className="w-4 h-4 mr-1" /> Новый
         </Button>
+      </div>
+
+      {selectionMode && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border/30 bg-muted/20">
+          <span className="text-xs text-muted-foreground">
+            Выбрано: {selectedIds.size} / {filtered.length}
+          </span>
+          <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={selectAllInView}>
+            Все на экране
+          </Button>
+          <Select value={bulkApplyStatus} onValueChange={setBulkApplyStatus}>
+            <SelectTrigger className="h-9 w-[180px] bg-transparent border-border/30 text-xs">
+              <SelectValue placeholder="Статус" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {getStatusLabel(s, 'ru')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-foreground text-background h-9"
+            onClick={applyBulkStatus}
+            disabled={!selectedIds.size}
+          >
+            Применить статус
+          </Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Статус (фильтр)</Label>
+          <Select
+            value={statusFilter || 'all'}
+            onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
+          >
+            <SelectTrigger className="mt-1 h-10 bg-transparent border-border/30">
+              <SelectValue placeholder="Все статусы" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все статусы</SelectItem>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {getStatusLabel(s, 'ru')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Создан с</Label>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="mt-1 h-10 bg-transparent border-border/30"
+          />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Создан по</Label>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="mt-1 h-10 bg-transparent border-border/30"
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -266,61 +476,139 @@ export default function AdminOrders() {
       </div>
 
       <div className="space-y-2">
-        {filtered.map((order) => (
-          <GlassCard
-            key={order.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => openQuickStatus(order)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openQuickStatus(order);
-              }
-            }}
-            className="flex items-center justify-between p-4 cursor-pointer"
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {order.image_url && (
-                <img src={order.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{order.item_name}</p>
-                <p className="text-xs text-muted-foreground">{order.client_name || order.client_email}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{getStatusLabel(order.status, 'ru')}</p>
+        {ordersLoading ? (
+          <>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="rounded-[1.35rem] border border-border/20 p-4 flex gap-3">
+                <Skeleton className="h-14 w-14 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-full max-w-[240px]" />
+                  <Skeleton className="h-3 w-full max-w-[160px]" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {order.price ? (
-                <span className="text-xs font-light">
-                  {order.price.toLocaleString()} {order.currency}
-                </span>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openEdit(order);
-                }}
-                className="h-8 w-8"
-                aria-label="Редактировать заказ"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </GlassCard>
-        ))}
+            ))}
+          </>
+        ) : (
+          filtered.map((order) => (
+            <GlassCard
+              key={order.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (selectionMode) toggleSelected(order.id);
+                else openQuickStatus(order);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (selectionMode) toggleSelected(order.id);
+                  else openQuickStatus(order);
+                }
+              }}
+              className={`flex items-stretch justify-between min-h-[3.75rem] py-3 px-3 sm:px-4 cursor-pointer ${
+                selectionMode && selectedIds.has(order.id) ? 'ring-1 ring-foreground/30' : ''
+              }`}
+            >
+              {selectionMode && (
+                <div
+                  className="flex items-center pr-2"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    checked={selectedIds.has(order.id)}
+                    onCheckedChange={() => toggleSelected(order.id)}
+                    className="h-5 w-5"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {order.image_url && (
+                  <img src={order.image_url} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{order.item_name}</p>
+                  <p className="text-xs text-muted-foreground">{order.client_name || order.client_email}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{getStatusLabel(order.status, 'ru')}</p>
+                  <p className="text-[10px] text-muted-foreground/80 mt-0.5 font-mono truncate">
+                    ID: {order.id}
+                    {order.updated_date ? ` · обн. ${new Date(order.updated_date).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {order.price ? (
+                  <span className="text-xs font-light hidden sm:inline mr-1">
+                    {order.price.toLocaleString()} {order.currency}
+                  </span>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyOrderId(order.id, e);
+                  }}
+                  className="h-11 w-11 min-h-[44px] min-w-[44px]"
+                  aria-label="Копировать ID заказа"
+                >
+                  {copiedId === order.id ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEdit(order);
+                  }}
+                  className="h-11 w-11 min-h-[44px] min-w-[44px]"
+                  aria-label="Редактировать заказ"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+            </GlassCard>
+          ))
+        )}
+        {!ordersLoading && filtered.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-8">Нет заказов по текущим фильтрам</p>
+        )}
       </div>
 
       <Dialog open={!!statusQuick} onOpenChange={(v) => !v && setStatusQuick(null)}>
-        <DialogContent className="glass border-border/20 max-w-sm">
+        <DialogContent className="max-w-sm border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">Статус заказа</DialogTitle>
           </DialogHeader>
           {statusQuick && (
             <>
               <p className="text-sm font-light line-clamp-2">{statusQuick.item_name}</p>
+              <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-[10px] font-mono text-muted-foreground break-all">ID: {statusQuick.id}</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0"
+                  onClick={() => copyOrderId(statusQuick.id)}
+                >
+                  {copiedId === statusQuick.id ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+              {statusQuick.updated_date && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Обновлён:{' '}
+                  {new Date(statusQuick.updated_date).toLocaleString('ru-RU', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </p>
+              )}
               <div className="mt-2">
                 <Label className="text-xs">Новый статус</Label>
                 <Select value={quickStatusValue} onValueChange={setQuickStatusValue}>
@@ -350,7 +638,7 @@ export default function AdminOrders() {
       </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="glass border-border/20 max-h-[90vh] overflow-y-auto max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
               {editingOrder ? 'Редактирование заказа' : 'Новый заказ'}

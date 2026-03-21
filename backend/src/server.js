@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 import { createUserFromTelegram, nowIso, readDb, writeDb } from "./db.js";
 import { verifyTelegramInitData } from "./telegramAuth.js";
+import { sendTelegramMessage, formatOrderStatusMessageRu } from "./telegramNotify.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -315,7 +316,18 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   db.orders[idx] = { ...before, ...body, updated_date: nowIso() };
   applyOrderBonusesIfNeeded(db, db.orders[idx]);
   writeDb(db);
-  res.json(db.orders[idx]);
+  const after = db.orders[idx];
+
+  if (TELEGRAM_BOT_TOKEN && before.status !== after.status && after.client_email) {
+    const client = db.users.find((u) => u.email === after.client_email);
+    const tgId = client?.telegram_id;
+    if (tgId) {
+      const msg = formatOrderStatusMessageRu(after);
+      sendTelegramMessage(TELEGRAM_BOT_TOKEN, tgId, msg).catch(() => {});
+    }
+  }
+
+  res.json(after);
 });
 
 app.get("/api/referrals/stats", authRequired, (req, res) => {

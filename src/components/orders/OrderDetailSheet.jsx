@@ -1,14 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 import { useTheme } from '@/lib/ThemeContext';
 import { t, getStatusLabel, getCategoryLabel } from '@/lib/i18n';
 import { Badge } from '@/components/ui/badge';
-import { Package, Calendar, Tag, Banknote, Clock } from 'lucide-react';
+import { Package, Calendar, Tag, Banknote, Clock, Copy, Check } from 'lucide-react';
+import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
+import { toast } from 'sonner';
 
 function formatDate(iso, locale) {
   if (!iso) return null;
@@ -26,6 +30,21 @@ function formatDate(iso, locale) {
 
 export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   const { lang } = useTheme();
+  const [idCopied, setIdCopied] = useState(false);
+
+  const copyId = async () => {
+    if (!order?.id) return;
+    try {
+      await navigator.clipboard.writeText(order.id);
+      setIdCopied(true);
+      hapticSuccess();
+      toast.success(lang === 'ru' ? 'ID скопирован' : 'ID copied');
+      setTimeout(() => setIdCopied(false), 2000);
+    } catch {
+      hapticError();
+      toast.error(lang === 'ru' ? 'Не удалось скопировать' : 'Copy failed');
+    }
+  };
 
   const { etaLabel, daysLeftLabel } = useMemo(() => {
     if (!order) return { etaLabel: null, daysLeftLabel: null };
@@ -71,8 +90,23 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   const rows = useMemo(() => {
     if (!order) return [];
     const orderDateStr = formatDate(order.created_date, lang);
+    const updatedStr = order.updated_date
+      ? new Date(order.updated_date).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        })
+      : null;
     return [
       { icon: Calendar, label: lang === 'ru' ? 'Дата заказа' : 'Order date', value: orderDateStr },
+      ...(updatedStr
+        ? [
+            {
+              icon: Clock,
+              label: lang === 'ru' ? 'Обновлён' : 'Last updated',
+              value: updatedStr,
+            },
+          ]
+        : []),
       { icon: Package, label: t('brand', lang), value: order.brand },
       { icon: Tag, label: t('size', lang), value: order.item_size },
       {
@@ -126,6 +160,26 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
           </div>
         )}
 
+        <div className="flex items-start justify-between gap-2 py-2 border-b border-border/10 mb-2">
+          <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+            <Tag className="w-4 h-4 shrink-0" />
+            <span className="text-xs">{lang === 'ru' ? 'ID заказа' : 'Order ID'}</span>
+          </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-xs font-mono text-right break-all">{order.id}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0"
+              onClick={copyId}
+              aria-label={lang === 'ru' ? 'Копировать ID' : 'Copy ID'}
+            >
+              {idCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+
         <div className="space-y-3">
           {rows.map((row, i) => (
             <div
@@ -153,6 +207,17 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
             {lang === 'ru' ? 'Только просмотр' : 'Read only'}
           </p>
         )}
+
+        <SheetFooter className="flex-col gap-2 sm:flex-col pt-6 pb-1">
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full h-12 text-base"
+            onClick={() => onClose?.()}
+          >
+            {lang === 'ru' ? 'Закрыть' : 'Close'}
+          </Button>
+        </SheetFooter>
           </>
         )}
       </SheetContent>
