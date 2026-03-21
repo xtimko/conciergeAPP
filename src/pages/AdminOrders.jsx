@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
 import ImageUploadField from '@/components/admin/ImageUploadField';
-import { downloadOrdersCsv } from '@/lib/exportOrdersCsv';
+import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
 
 function inDateRange(iso, fromStr, toStr) {
@@ -184,7 +184,7 @@ export default function AdminOrders() {
       return;
     }
     const fn = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
-    const result = await downloadOrdersCsv(displayedOrders, fn);
+    const result = await exportOrdersCsv(displayedOrders, fn);
     if (result === 'share') {
       hapticSuccess();
       toast.success('Откройте меню «Поделиться» и сохраните файл');
