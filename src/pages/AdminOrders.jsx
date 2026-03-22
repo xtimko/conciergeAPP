@@ -747,17 +747,16 @@ export default function AdminOrders() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
-          className="miniapp-dialog-offset max-w-lg max-h-[90vh] flex flex-col overflow-hidden border-border/60 bg-background gap-0"
+          className="max-w-lg max-h-[90vh] overflow-y-auto border-border/60 bg-background"
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="shrink-0">
+          <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
               {editingOrder ? 'Редактирование заказа' : 'Новый заказ'}
             </DialogTitle>
           </DialogHeader>
-          {/* Поле клиента вне overflow-y-auto — иначе выпадающий список обрезается; z-index — чтобы список был над прокруткой */}
-          <div className="shrink-0 mt-4 relative z-[10050]">
+          <div className="grid grid-cols-2 gap-3 mt-4">
             <ClientEmailAutocomplete
               value={clientSearch}
               onChange={(v) => {
@@ -769,9 +768,6 @@ export default function AdminOrders() {
               clients={clients}
               label="Клиент *"
             />
-          </div>
-          <div className="overflow-y-auto min-h-0 flex-1 -mx-1 px-1 pb-1">
-          <div className="grid grid-cols-2 gap-3 mt-4">
             <div>
               <Label className="text-xs">Имя клиента</Label>
               <Input
@@ -994,8 +990,7 @@ export default function AdminOrders() {
               />
             </div>
           </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4 shrink-0 pt-2 border-t border-border/10">
+          <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="glass border-border/30">
               Отмена
             </Button>

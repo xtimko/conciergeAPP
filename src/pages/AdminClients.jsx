@@ -5,7 +5,7 @@ import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Pencil, ClipboardList, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -139,80 +139,84 @@ export default function AdminClients() {
       </div>
 
       <Dialog open={!!detailClient} onOpenChange={(v) => !v && setDetailClient(null)}>
-        <DialogContent className="miniapp-dialog-offset max-w-md max-h-[82vh] overflow-y-auto border-border/60 bg-background">
-          <DialogHeader>
+        <DialogContent className="miniapp-dialog-offset flex max-h-[min(88dvh,92vh)] min-h-0 w-[calc(100%-1.5rem)] max-w-md flex-col gap-0 overflow-hidden border-border/60 bg-background p-0">
+          <DialogHeader className="shrink-0 space-y-0 border-b border-border/10 px-5 pb-3 pt-5 text-left">
             <DialogTitle className="text-sm font-medium tracking-wide">Карточка клиента</DialogTitle>
           </DialogHeader>
           {detailClient && (
-            <div className="space-y-0 mt-1">
-              {[
-                ['Имя', [detailClient.first_name, detailClient.last_name].filter(Boolean).join(' ').trim()],
-                ['Номер клиента', detailClient.public_id || getClientPublicId(detailClient)],
-                ['Телефон', detailClient.phone],
-                [
-                  'Telegram',
-                  detailClient.telegram_username
-                    ? `@${String(detailClient.telegram_username).replace(/^@/, '')}`
-                    : '',
-                ],
-                ...(detailClient.telegram_id
-                  ? [['Telegram ID', String(detailClient.telegram_id)]]
-                  : []),
-                ['ID в системе', detailClient.id],
-                ['Город', detailClient.city],
-                ['Улица', detailClient.address_street],
-                ['Дом', detailClient.address_house],
-                ['Кв.', detailClient.address_apartment],
-                ['Этаж', detailClient.address_floor],
-                ['Подъезд', detailClient.address_entrance],
-                ['Домофон', detailClient.intercom],
-                ['Комментарий курьеру', detailClient.courier_comment],
-                [
-                  'Полный адрес',
-                  buildClientDeliveryAddress(detailClient) || detailClient.delivery_address || '',
-                ],
-                ['Реф. код', detailClient.referral_code],
-                ['Баллы', `${detailClient.bonus_balance ?? 0} pts`],
-              ].map(([label, val], i) => {
-                if (val == null || String(val).trim() === '') return null;
-                const key = `f-${detailClient.id}-${i}`;
-                return (
-                  <div
-                    key={key}
-                    className="flex items-start justify-between gap-2 py-2 border-b border-border/10"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-muted-foreground">{label}</p>
-                      <p className="text-sm font-light break-words">{String(val)}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
-                      onClick={(e) => copyText(String(val), key, e)}
-                      aria-label={`Копировать ${label}`}
-                    >
-                      {copiedField === key ? (
-                        <Check className="w-3.5 h-3.5 text-green-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                );
-              })}
-              <DialogFooter className="flex-col gap-2 sm:flex-col pt-4 pb-1 px-0">
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2">
+                <div className="space-y-0">
+                  {[
+                    ['Имя', [detailClient.first_name, detailClient.last_name].filter(Boolean).join(' ').trim()],
+                    ['Номер клиента', detailClient.public_id || getClientPublicId(detailClient)],
+                    ['Телефон', detailClient.phone],
+                    [
+                      'Telegram',
+                      detailClient.telegram_username
+                        ? `@${String(detailClient.telegram_username).replace(/^@/, '')}`
+                        : '',
+                    ],
+                    ...(detailClient.telegram_id
+                      ? [['Telegram ID', String(detailClient.telegram_id)]]
+                      : []),
+                    ['ID в системе', detailClient.id],
+                    ['Город', detailClient.city],
+                    ['Улица', detailClient.address_street],
+                    ['Дом', detailClient.address_house],
+                    ['Кв.', detailClient.address_apartment],
+                    ['Этаж', detailClient.address_floor],
+                    ['Подъезд', detailClient.address_entrance],
+                    ['Домофон', detailClient.intercom],
+                    ['Комментарий курьеру', detailClient.courier_comment],
+                    [
+                      'Полный адрес',
+                      buildClientDeliveryAddress(detailClient) || detailClient.delivery_address || '',
+                    ],
+                    ['Реф. код', detailClient.referral_code],
+                    ['Баллы', `${detailClient.bonus_balance ?? 0} pts`],
+                  ].map(([label, val], i) => {
+                    if (val == null || String(val).trim() === '') return null;
+                    const key = `f-${detailClient.id}-${i}`;
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-start justify-between gap-2 py-2 border-b border-border/10"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-muted-foreground">{label}</p>
+                          <p className="text-sm font-light break-words">{String(val)}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={(e) => copyText(String(val), key, e)}
+                          aria-label={`Копировать ${label}`}
+                        >
+                          {copiedField === key ? (
+                            <Check className="w-3.5 h-3.5 text-green-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="shrink-0 border-t border-border/20 bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-3">
                 <Button
                   type="button"
                   variant="secondary"
-                  className="w-full h-11"
+                  className="h-11 w-full"
                   onClick={() => setDetailClient(null)}
                 >
                   Закрыть
                 </Button>
-              </DialogFooter>
-            </div>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
