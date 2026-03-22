@@ -30,6 +30,11 @@ if (!TELEGRAM_BOT_TOKEN) {
 } else {
   console.log("[concierge] TELEGRAM_BOT_TOKEN загружен — уведомления клиентам в Telegram включены.");
 }
+const _tgProxy = String(process.env.TELEGRAM_PROXY || process.env.TELEGRAM_HTTPS_PROXY || "").trim();
+console.log(
+  "[concierge] TELEGRAM_PROXY:",
+  _tgProxy ? "задан (sendMessage через прокси)" : "не задан (прямое подключение к api.telegram.org)"
+);
 
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 /* data URL фото в заказах — без лимита мелкие запросы падают на больших снимках */
@@ -386,13 +391,27 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   applyOrderBonusesIfNeeded(db, db.orders[idx]);
   writeDb(db);
   const after = db.orders[idx];
+  const statusChanged = before.status !== after.status;
+
+  if (statusChanged) {
+    console.log(
+      `[orders] PATCH id=${after.id} статус: "${before.status}" -> "${after.status}" | client_email=${Boolean(after.client_email)} client_telegram_id=${Boolean(after.client_telegram_id)}`
+    );
+  }
 
   if (
     TELEGRAM_BOT_TOKEN &&
-    before.status !== after.status &&
+    statusChanged &&
     (after.client_email || after.client_telegram_id)
   ) {
+    console.log(`[orders] отправляем Telegram-уведомление (status) для заказа ${after.id}`);
     notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, after, "status");
+  } else if (statusChanged) {
+    if (!TELEGRAM_BOT_TOKEN) {
+      console.warn("[orders] статус изменён, но TELEGRAM_BOT_TOKEN пуст — уведомление в Telegram не отправится.");
+    } else if (!after.client_email && !after.client_telegram_id) {
+      console.warn("[orders] статус изменён, но у заказа нет client_email / client_telegram_id — уведомление не отправится.");
+    }
   }
 
   res.json(after);
@@ -461,5 +480,5 @@ function migrateDbOnce() {
 migrateDbOnce();
 
 app.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
+  console.log(`[concierge] API running on http://localhost:${PORT} (логи: stdout → смотри journalctl -u concierge-api)`);
 });
