@@ -10,6 +10,8 @@ export default function ClientEmailAutocomplete({
   clients,
   label = 'Клиент *',
   placeholder = 'Телефон, имя, фамилия, @telegram, номер CLI…',
+  /** При открытии «Новый заказ» — сразу фокус в поле клиента */
+  autoFocus = false,
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -54,6 +56,8 @@ export default function ClientEmailAutocomplete({
         placeholder={placeholder}
         className="mt-1 bg-transparent border-border/30"
         autoComplete="off"
+        autoFocus={autoFocus}
+        enterKeyHint="search"
       />
       {showList && (
         <div className="absolute z-[10060] left-0 right-0 mt-1 glass rounded-xl border border-border/30 overflow-hidden max-h-[min(50vh,20rem)] overflow-y-auto shadow-lg">

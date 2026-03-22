@@ -747,16 +747,16 @@ export default function AdminOrders() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
-          className="max-w-lg max-h-[90vh] overflow-y-auto border-border/60 bg-background"
+          className="admin-order-sheet border-border/60 bg-background p-0"
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader>
+          <DialogHeader className="shrink-0 space-y-0 border-b border-border/10 px-5 pb-3 pr-12 pt-5 text-left">
             <DialogTitle className="text-sm font-medium tracking-wide">
               {editingOrder ? 'Редактирование заказа' : 'Новый заказ'}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="relative z-[10050] shrink-0 px-5 pt-3">
             <ClientEmailAutocomplete
               value={clientSearch}
               onChange={(v) => {
@@ -767,13 +767,28 @@ export default function AdminOrders() {
               onClientSelect={handleClientSelect}
               clients={clients}
               label="Клиент *"
+              autoFocus={!editingOrder}
             />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2">
+            <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <Label className="text-xs">Товар *</Label>
+              <Input
+                value={form.item_name}
+                onChange={(e) => updateField('item_name', e.target.value)}
+                className="mt-1 bg-transparent border-border/30"
+                enterKeyHint="next"
+                placeholder="Название, модель, цвет…"
+              />
+            </div>
             <div>
               <Label className="text-xs">Имя клиента</Label>
               <Input
                 value={form.client_name}
                 onChange={(e) => updateField('client_name', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
+                enterKeyHint="next"
               />
             </div>
             <div>
@@ -782,14 +797,7 @@ export default function AdminOrders() {
                 value={form.brand}
                 onChange={(e) => updateField('brand', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
-              />
-            </div>
-            <div className="col-span-2">
-              <Label className="text-xs">Товар *</Label>
-              <Input
-                value={form.item_name}
-                onChange={(e) => updateField('item_name', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
+                enterKeyHint="next"
               />
             </div>
             <div>
@@ -819,20 +827,24 @@ export default function AdminOrders() {
               <Label className="text-xs">Цена</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 value={form.price}
                 onChange={(e) => updateField('price', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
+                enterKeyHint="next"
               />
             </div>
             <div>
               <Label className="text-xs">Себестоимость</Label>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 value={form.cost_price}
                 onChange={(e) => updateField('cost_price', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
                 placeholder="0"
+                enterKeyHint="next"
               />
             </div>
             <div>
@@ -944,9 +956,11 @@ export default function AdminOrders() {
                   <Label className="text-xs">Друг — баллы владельцу реф. кода</Label>
                   <Input
                     type="number"
+                    inputMode="numeric"
                     value={form.referrer_bonus}
                     onChange={(e) => updateField('referrer_bonus', e.target.value)}
                     className="mt-1 bg-transparent border-border/30"
+                    enterKeyHint="next"
                   />
                 </div>
               </>
@@ -983,21 +997,24 @@ export default function AdminOrders() {
               </Label>
               <Input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 value={form.referral_bonus}
                 onChange={(e) => updateField('referral_bonus', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"
+                enterKeyHint="done"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
+          </div>
+          <div className="flex shrink-0 justify-end gap-2 border-t border-border/10 bg-background px-5 py-3">
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="glass border-border/30">
               Отмена
             </Button>
             <Button
               onClick={handleSave}
               disabled={!editingOrder && !selectedClientId}
-              className="bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
+              className="bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 min-w-[7rem]"
             >
               Сохранить
             </Button>

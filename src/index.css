@@ -328,4 +328,25 @@
     overflow: hidden !important;
     gap: 0 !important;
   }
+
+  /**
+   * Новый заказ: та же привязка top/bottom — высота окна не «съедается» клавиатурой
+   * вместе с viewport interactive-widget=overlays-content; контент скроллится, кнопки снизу.
+   */
+  .admin-order-sheet {
+    top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + var(--tma-content-top, 0px))) !important;
+    bottom: max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + var(--tma-content-bottom, 0px))) !important;
+    left: 50% !important;
+    right: auto !important;
+    width: calc(100% - 1.5rem) !important;
+    max-width: 32rem !important;
+    transform: translateX(-50%) !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    gap: 0 !important;
+  }
 }
