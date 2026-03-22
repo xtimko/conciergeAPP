@@ -1,5 +1,5 @@
 /**
- * Человекочитаемый номер заказа (CON-000001) или сокращение длинного legacy-id.
+ * Человекочитаемый номер заказа (CON-XXXXXX, случайные цифры на бэкенде) или сокращение legacy-id.
  */
 export function formatOrderDisplayId(order) {
   if (!order?.id) return '—';

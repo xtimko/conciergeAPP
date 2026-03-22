@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { randomInt } from "node:crypto";
 import { fileURLToPath } from "url";
 import { nanoid } from "nanoid";
 
@@ -41,14 +42,25 @@ export function nextClientPublicId(db) {
   return `CLI-${String(max + 1).padStart(6, "0")}`;
 }
 
-/** Следующий номер заказа CON-000001. */
+/**
+ * Уникальный номер заказа CON-XXXXXX: случайные 6 цифр (0…999999), без повторов
+ * среди существующих id заказов. Не предсказуем по порядку создания.
+ */
 export function nextOrderPublicId(db) {
-  let max = 0;
-  for (const o of db.orders) {
-    const m = /^CON-(\d+)$/.exec(o.id || "");
-    if (m) max = Math.max(max, Number(m[1]));
+  const used = new Set();
+  for (const o of db.orders || []) {
+    const m = /^CON-(\d{6})$/.exec(String(o.id || ""));
+    if (m) used.add(m[1]);
   }
-  return `CON-${String(max + 1).padStart(6, "0")}`;
+  const maxAttempts = 10_000;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const n = randomInt(0, 1_000_000);
+    const suffix = String(n).padStart(6, "0");
+    if (!used.has(suffix)) {
+      return `CON-${suffix}`;
+    }
+  }
+  throw new Error("nextOrderPublicId: не удалось выделить свободный номер CON-");
 }
 
 /** Проставить public_id клиентам без номера (миграция). */

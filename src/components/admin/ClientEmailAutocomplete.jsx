@@ -17,10 +17,13 @@ function matchesQuery(client, qRaw) {
   const tg = (client.telegram_username || '').toLowerCase().replace(/^@/, '');
   const tgId = String(client.telegram_id || '');
   const id = String(client.id || '').toLowerCase();
+  const publicId = String(client.public_id || '').trim().toLowerCase();
+  /** Только цифры из CLI-000123 → «000123», чтобы искать без префикса CLI- */
+  const publicDigits = normalizePhoneDigits(client.public_id || '');
   const phoneDigits = normalizePhoneDigits(client.phone);
   const qDigits = normalizePhoneDigits(q);
 
-  const fields = [name, first, last, full, email, tg, tgId, id, phoneDigits];
+  const fields = [name, first, last, full, email, tg, tgId, id, publicId, publicDigits, phoneDigits];
 
   const tokens = q.split(/\s+/).filter(Boolean);
   if (tokens.length > 1) {
@@ -28,14 +31,24 @@ function matchesQuery(client, qRaw) {
   }
 
   const single = tokens[0] || q;
+  const tgQuery = single.replace(/^@/, '').toLowerCase();
+
+  /** Номер CLI без слова CLI: ввод «000123», «123» (суффикс), полный «cli-000123» */
+  const matchPublicDigits =
+    publicDigits &&
+    qDigits.length >= 2 &&
+    (publicDigits === qDigits || publicDigits.endsWith(qDigits));
+
   return (
     name.includes(single) ||
     first.includes(single) ||
     last.includes(single) ||
     full.includes(single) ||
     email.includes(single) ||
-    tg.includes(single.replace(/^@/, '')) ||
+    tg.includes(tgQuery) ||
     id.includes(single) ||
+    (publicId && publicId.includes(single)) ||
+    matchPublicDigits ||
     (qDigits.length >= 2 && phoneDigits.includes(qDigits)) ||
     (tgId && tgId.toLowerCase().includes(single.replace(/\D/g, '')))
   );
@@ -89,8 +102,8 @@ export default function ClientEmailAutocomplete({
         className="mt-1 bg-transparent border-border/30"
         autoComplete="off"
       />
-      {open && filtered.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 mt-1 glass rounded-xl border border-border/30 overflow-hidden max-h-64 overflow-y-auto">
+      {showList && (
+        <div className="absolute z-[10060] left-0 right-0 mt-1 glass rounded-xl border border-border/30 overflow-hidden max-h-64 overflow-y-auto shadow-lg">
           {filtered.map((c) => (
             <button
               key={c.id}
