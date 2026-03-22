@@ -9,7 +9,12 @@
  * Новый тип: добавь в NOTIFICATION_REGISTRY и вызови notifyClientTelegram(...).
  */
 import { sendTelegramMessage, sendTelegramPhoto } from "./telegramBotApi.js";
-import { formatOrderCreatedNotificationRu, formatOrderStatusMessageRu } from "./notificationMessages.js";
+import {
+  formatOrderCreatedNotificationRu,
+  formatOrderStatusMessageRu,
+  formatBonusDeliveredClientRu,
+  formatBonusDeliveredReferrerRu
+} from "./notificationMessages.js";
 
 /** Значения по умолчанию для новых и существующих пользователей */
 export const DEFAULT_NOTIFY_PREFERENCES = {
@@ -76,20 +81,58 @@ export const NOTIFICATION_REGISTRY = {
   order_status_changed: {
     channel: "orders",
     buildText: ({ order }) => formatOrderStatusMessageRu(order)
+  },
+  /** Начисление/списание баллов у клиента заказа при статусе «доставлен» */
+  bonus_delivered_client: {
+    channel: "orders",
+    buildText: ({ extra }) => formatBonusDeliveredClientRu(extra)
+  },
+  /** Баллы пригласившему за доставленный заказ приглашённого */
+  bonus_delivered_referrer: {
+    channel: "orders",
+    buildText: ({ extra }) => formatBonusDeliveredReferrerRu(extra)
   }
 };
 
 /**
+ * После applyOrderBonusesIfNeeded: уведомить клиента и реферера (если есть начисления).
+ */
+export function notifyDeliveredBonusesTelegram(botToken, db, order, bonusResult) {
+  if (!botToken || !bonusResult || !order) return;
+  const { clientDelta, referrerDelta } = bonusResult;
+
+  if (clientDelta !== 0 && order.client_email) {
+    const u = db.users.find((x) => String(x.email || "").trim() === String(order.client_email).trim());
+    if (u) {
+      void notifyClientTelegram(botToken, u, {
+        type: "bonus_delivered_client",
+        extra: { delta: clientDelta, orderId: order.id }
+      }).catch((e) => console.warn("[clientNotifications] bonus client:", e?.message || e));
+    }
+  }
+
+  if (referrerDelta > 0 && order.referrer_email) {
+    const r = db.users.find((x) => String(x.email || "").trim() === String(order.referrer_email).trim());
+    if (r) {
+      void notifyClientTelegram(botToken, r, {
+        type: "bonus_delivered_referrer",
+        extra: { delta: referrerDelta, orderId: order.id }
+      }).catch((e) => console.warn("[clientNotifications] bonus referrer:", e?.message || e));
+    }
+  }
+}
+
+/**
  * Отправить уведомление клиенту, если включён канал и есть валидный telegram_id.
  * @param {object} user — документ пользователя из db.users
- * @param {{ type: string, order?: object }} payload — type из NOTIFICATION_REGISTRY; order для заказных типов
+ * @param {{ type: string, order?: object, extra?: object }} payload — extra для bonus_* и др.
  */
 export async function notifyClientTelegram(botToken, user, payload) {
   if (!botToken) {
     console.warn("[clientNotifications] пропуск: TELEGRAM_BOT_TOKEN не задан");
     return;
   }
-  const { type, order } = payload || {};
+  const { type, order, extra } = payload || {};
   const meta = NOTIFICATION_REGISTRY[type];
   if (!meta) {
     console.warn("[clientNotifications] неизвестный тип уведомления:", type);
@@ -126,7 +169,7 @@ export async function notifyClientTelegram(botToken, user, payload) {
 
   let text;
   try {
-    text = meta.buildText({ order, user });
+    text = meta.buildText({ order, user, extra });
   } catch (e) {
     console.warn("[clientNotifications] buildText error:", e?.message || e);
     return;

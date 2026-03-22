@@ -118,6 +118,25 @@ export function formatOrderCreatedNotificationRu(order, opts = {}) {
   return text;
 }
 
+/** Начисление / списание баллов по доставленному заказу (клиент заказа) */
+export function formatBonusDeliveredClientRu(extra) {
+  const orderId = String(extra?.orderId || "—");
+  const delta = Number(extra?.delta ?? 0);
+  if (delta === 0) return "";
+  if (delta > 0) {
+    return `Баллы по заказу ${orderId}\n\nЗачислено на счёт: ${delta} баллов.`;
+  }
+  return `Баллы по заказу ${orderId}\n\nСписано со счёта: ${Math.abs(delta)} баллов.`;
+}
+
+/** Реферальное вознаграждение пригласившему после доставки заказа друга */
+export function formatBonusDeliveredReferrerRu(extra) {
+  const orderId = String(extra?.orderId || "—");
+  const delta = Number(extra?.delta ?? 0);
+  if (delta <= 0) return "";
+  return `Реферальное вознаграждение\n\nЗаказ ${orderId} доставлен.\n\nНа ваш счёт зачислено ${delta} баллов.`;
+}
+
 /** Обновление статуса — коротко, без эмодзи в каждой строке */
 export function formatOrderStatusMessageRu(order) {
   const title = order.item_name || "Заказ";
