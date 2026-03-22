@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./loadEnv.js";
 import express from "express";
 import cors from "cors";
 import jwt from "jsonwebtoken";
@@ -22,6 +22,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:4173";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ALLOW_DEV_TELEGRAM_LOGIN = process.env.ALLOW_DEV_TELEGRAM_LOGIN === "true";
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.warn(
+    "[concierge] TELEGRAM_BOT_TOKEN пуст — вход через Telegram и уведомления о заказах не будут работать. Файл: backend/.env"
+  );
+} else {
+  console.log("[concierge] TELEGRAM_BOT_TOKEN загружен — уведомления клиентам в Telegram включены.");
+}
 
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 /* data URL фото в заказах — без лимита мелкие запросы падают на больших снимках */

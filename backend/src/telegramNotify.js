@@ -19,7 +19,9 @@ export async function sendTelegramMessage(botToken, chatId, text) {
   if (!res.ok) {
     const err = await res.text().catch(() => "");
     console.warn("[telegramNotify] sendMessage failed:", res.status, err);
+    return;
   }
+  console.log("[telegramNotify] сообщение отправлено в Telegram (chat_id:", id + ")");
 }
 
 const STATUS_RU = {
@@ -117,16 +119,35 @@ export function formatOrderCreatedMessageRu(order) {
  * Уведомление в чат с ботом (если у клиента есть telegram_id).
  */
 export function notifyOrderInTelegramChat(botToken, db, order, kind) {
-  if (!botToken) return;
-  if (!order?.client_email && !order?.client_telegram_id) return;
+  if (!botToken) {
+    console.warn("[telegramNotify] пропуск: TELEGRAM_BOT_TOKEN не задан (проверь backend/.env и перезапуск)");
+    return;
+  }
+  if (!order?.client_email && !order?.client_telegram_id) {
+    console.warn("[telegramNotify] пропуск: у заказа нет client_email / client_telegram_id, id=", order?.id);
+    return;
+  }
   const user = findUserForOrder(db, order);
   const tgId = user?.telegram_id;
-  if (!tgId) return;
+  if (!tgId) {
+    console.warn(
+      "[telegramNotify] не нашли клиента в data.json или у него нет telegram_id. Заказ:",
+      order?.id,
+      "client_email:",
+      order?.client_email,
+      "client_telegram_id:",
+      order?.client_telegram_id,
+      "— клиент должен хотя бы раз зайти в Mini App, чтобы в базе появился telegram_id."
+    );
+    return;
+  }
   let text;
   if (kind === "created") {
     text = formatOrderCreatedMessageRu(order);
   } else {
     text = formatOrderStatusMessageRu(order);
   }
-  sendTelegramMessage(botToken, tgId, text).catch(() => {});
+  sendTelegramMessage(botToken, tgId, text).catch((e) => {
+    console.warn("[telegramNotify] ошибка отправки:", e?.message || e);
+  });
 }

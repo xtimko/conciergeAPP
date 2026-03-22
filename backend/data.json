@@ -7,7 +7,7 @@
       "first_name": "Timur",
       "last_name": "",
       "full_name": "Timur",
-      "email": "",
+      "email": "tg_123@concierge-app.local",
       "phone": "",
       "city": "",
       "delivery_address": "",
@@ -17,7 +17,11 @@
       "language": "ru",
       "theme": "dark",
       "created_date": "2026-03-21T10:34:43.027Z",
-      "updated_date": "2026-03-21T10:34:43.027Z"
+      "updated_date": "2026-03-21T10:34:43.027Z",
+      "profile_completed": true,
+      "telegram_username": "",
+      "address_entrance": "",
+      "public_id": "CLI-000001"
     },
     {
       "id": "vzA332BsIrqrw_fSdhUug",
@@ -26,7 +30,7 @@
       "first_name": "Тимур",
       "last_name": "",
       "full_name": "Тимур",
-      "email": "",
+      "email": "tg_dev-user-1@concierge-app.local",
       "phone": "",
       "city": "",
       "delivery_address": "",
@@ -36,7 +40,11 @@
       "language": "ru",
       "theme": "dark",
       "created_date": "2026-03-21T10:39:11.248Z",
-      "updated_date": "2026-03-21T10:39:11.248Z"
+      "updated_date": "2026-03-21T10:39:11.248Z",
+      "profile_completed": true,
+      "telegram_username": "",
+      "address_entrance": "",
+      "public_id": "CLI-000002"
     },
     {
       "id": "Oxsbz6zH6sOxKB6b1jZwV",
@@ -45,7 +53,7 @@
       "first_name": "Timur",
       "last_name": "A",
       "full_name": "Timur A",
-      "email": "",
+      "email": "tg_777@concierge-app.local",
       "phone": "",
       "city": "",
       "delivery_address": "",
@@ -55,7 +63,11 @@
       "language": "ru",
       "theme": "dark",
       "created_date": "2026-03-21T10:44:00.176Z",
-      "updated_date": "2026-03-21T10:44:00.176Z"
+      "updated_date": "2026-03-21T10:44:00.176Z",
+      "profile_completed": true,
+      "telegram_username": "",
+      "address_entrance": "",
+      "public_id": "CLI-000003"
     }
   ],
   "orders": []
