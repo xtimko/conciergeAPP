@@ -15,6 +15,7 @@ import {
   notifyOrderInTelegramChat,
   deriveClientTelegramIdFromBody,
 } from "./telegramNotify.js";
+import { mergeNotifyPreferences } from "./clientNotifications.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -144,7 +145,8 @@ const USER_ME_ALLOWED = new Set([
   "language",
   "theme",
   "referral_code",
-  "bonus_balance"
+  "bonus_balance",
+  "notify_preferences"
 ]);
 
 function normalizePhoneRu(raw) {
@@ -272,7 +274,13 @@ app.patch("/api/users/me", authRequired, (req, res) => {
   if (idx < 0) return res.status(404).json({ message: "User not found" });
   const patch = {};
   for (const k of Object.keys(req.body || {})) {
-    if (USER_ME_ALLOWED.has(k)) patch[k] = req.body[k];
+    if (USER_ME_ALLOWED.has(k)) {
+      if (k === "notify_preferences") {
+        patch[k] = mergeNotifyPreferences(db.users[idx], req.body.notify_preferences);
+      } else {
+        patch[k] = req.body[k];
+      }
+    }
   }
   let merged = { ...db.users[idx], ...patch, updated_date: nowIso() };
   if ([...ADDRESS_FIELDS].some((k) => patch[k] !== undefined)) {
@@ -452,6 +460,10 @@ function migrateDbOnce() {
     }
     if (u.address_entrance === undefined) {
       u.address_entrance = "";
+      changed = true;
+    }
+    if (u.notify_preferences === undefined) {
+      u.notify_preferences = { orders: true, marketing: false, system: true };
       changed = true;
     }
   }

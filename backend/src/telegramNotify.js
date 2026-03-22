@@ -1,83 +1,6 @@
-import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { notifyClientTelegram } from "./clientNotifications.js";
 
-/** HTTP(S) прокси (CONNECT) для Bot API. SOCKS — не через undici; см. TELEGRAM_PROXY в .env.example */
-let _telegramProxyDispatcher = null;
-let _telegramProxyForUrl = "";
-
-function getTelegramProxyDispatcher() {
-  const proxyUrl = String(process.env.TELEGRAM_PROXY || process.env.TELEGRAM_HTTPS_PROXY || "").trim();
-  if (!proxyUrl) {
-    _telegramProxyDispatcher = null;
-    _telegramProxyForUrl = "";
-    return null;
-  }
-  if (_telegramProxyDispatcher && _telegramProxyForUrl === proxyUrl) {
-    return _telegramProxyDispatcher;
-  }
-  _telegramProxyForUrl = proxyUrl;
-  _telegramProxyDispatcher = new ProxyAgent(proxyUrl);
-  console.log("[telegramNotify] sendMessage через TELEGRAM_PROXY (undici ProxyAgent → api.telegram.org)");
-  return _telegramProxyDispatcher;
-}
-
-/**
- * Отправка сообщения пользователю в личный чат с ботом (Bot API sendMessage).
- * Требуется TELEGRAM_BOT_TOKEN в .env; пользователь не должен блокировать бота.
- * Если с VPS нет прямого доступа к api.telegram.org — задай TELEGRAM_PROXY (http://user:pass@host:port).
- */
-export async function sendTelegramMessage(botToken, chatId, text) {
-  if (!botToken || !chatId || !text) return;
-  const id = String(chatId).trim();
-  if (!id) return;
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  const body = JSON.stringify({
-    chat_id: id,
-    text: text.slice(0, 4000),
-    disable_web_page_preview: true
-  });
-  const dispatcher = getTelegramProxyDispatcher();
-  try {
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 45_000);
-    const res = await undiciFetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      signal: ac.signal,
-      ...(dispatcher ? { dispatcher } : {})
-    });
-    clearTimeout(timer);
-    const data = await res.json().catch(() => ({}));
-    if (!data?.ok) {
-      console.warn(
-        "[telegramNotify] sendMessage failed:",
-        res.status,
-        data?.error_code,
-        data?.description || JSON.stringify(data)
-      );
-      return;
-    }
-    console.log("[telegramNotify] сообщение отправлено в Telegram (chat_id:", id + ")");
-  } catch (e) {
-    const msg = e?.message || String(e);
-    console.warn("[telegramNotify] sendMessage error:", msg);
-    if (!dispatcher && /aborted|fetch failed|timeout|ETIMEDOUT|ECONNRESET/i.test(msg)) {
-      console.warn(
-        "[telegramNotify] подсказка: с этого сервера, скорее всего, нет прямого доступа к Telegram. Добавь в backend/.env TELEGRAM_PROXY=http://user:pass@host:port (как в рабочем curl -x) и перезапусти API."
-      );
-    }
-  }
-}
-
-const STATUS_RU = {
-  pending: "Ожидает",
-  confirmed: "Подтверждён",
-  sourcing: "В поиске",
-  shipping: "В пути",
-  awaiting_pickup: "Ожидает выдачи",
-  delivered: "Доставлен",
-  cancelled: "Отменён"
-};
+export { sendTelegramMessage } from "./telegramBotApi.js";
 
 /**
  * Найти пользователя по полю client_email заказа (и по «как email» строкам).
@@ -95,13 +18,11 @@ export function findUserByClientEmail(db, clientEmail) {
   const byEmail = db.users.find((u) => String(u.email || "").trim().toLowerCase() === e);
   if (byEmail) return byEmail;
 
-  // Только цифры — прямой поиск по telegram_id (5–16 цифр, как у реальных TG id)
   if (/^\d{5,16}$/.test(raw)) {
     const byTg = db.users.find((u) => String(u.telegram_id || "").trim() === raw);
     if (byTg) return byTg;
   }
 
-  // tg-<любой id>@client.internal (раньше были только цифры — ломалось для dev и нестандартных id)
   const mTg = /^tg-([^@]+)@client\.internal$/i.exec(e);
   if (mTg) {
     let key = mTg[1].trim();
@@ -160,22 +81,9 @@ export function deriveClientTelegramIdFromBody(body) {
   return "";
 }
 
-export function formatOrderStatusMessageRu(order) {
-  const title = order.item_name || "Заказ";
-  const st = STATUS_RU[order.status] || order.status;
-  const num = order.id ? `\nНомер: ${order.id}` : "";
-  return `📦 Обновление по заказу «${title}»${num}\n\nНовый статус: ${st}`;
-}
-
-export function formatOrderCreatedMessageRu(order) {
-  const title = order.item_name || "Заказ";
-  const st = STATUS_RU[order.status] || order.status;
-  const num = order.id ? `Номер: ${order.id}` : "";
-  return `✅ Заказ оформлен!\n\n📦 ${title}\n${num}\nСтатус: ${st}\n\nМы пришлём сообщение, когда статус изменится.`;
-}
-
 /**
- * Уведомление в чат с ботом (если у клиента есть telegram_id).
+ * Уведомление по заказу в чат с ботом (создание / смена статуса).
+ * Учитывает notify_preferences.orders (см. clientNotifications.js).
  */
 export function notifyOrderInTelegramChat(botToken, db, order, kind) {
   if (!botToken) {
@@ -187,35 +95,18 @@ export function notifyOrderInTelegramChat(botToken, db, order, kind) {
     return;
   }
   const user = findUserForOrder(db, order);
-  const tgId = user?.telegram_id;
-  if (!tgId) {
+  if (!user) {
     console.warn(
-      "[telegramNotify] не нашли клиента в data.json или у него нет telegram_id. Заказ:",
+      "[telegramNotify] не нашли клиента в data.json. Заказ:",
       order?.id,
       "client_email:",
       order?.client_email,
       "client_telegram_id:",
-      order?.client_telegram_id,
-      "— клиент должен хотя бы раз зайти в Mini App, чтобы в базе появился telegram_id."
+      order?.client_telegram_id
     );
     return;
   }
-  const idStr = String(tgId).trim();
-  if (!/^\d+$/.test(idStr)) {
-    console.warn(
-      "[telegramNotify] telegram_id не число — Bot API ждёт числовой chat_id. Сейчас:",
-      idStr,
-      "(часто это тестовый аккаунт; у реального пользователя в Telegram id всегда цифры.)"
-    );
-    return;
-  }
-  let text;
-  if (kind === "created") {
-    text = formatOrderCreatedMessageRu(order);
-  } else {
-    text = formatOrderStatusMessageRu(order);
-  }
-  sendTelegramMessage(botToken, idStr, text).catch((e) => {
-    console.warn("[telegramNotify] ошибка отправки:", e?.message || e);
-  });
+
+  const type = kind === "created" ? "order_created" : "order_status_changed";
+  notifyClientTelegram(botToken, user, { type, order });
 }
