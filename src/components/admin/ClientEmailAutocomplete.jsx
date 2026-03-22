@@ -78,6 +78,8 @@ export default function ClientEmailAutocomplete({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const showList = open && filtered.length > 0;
+
   const formatLine = (c) => {
     const name = c.first_name
       ? `${c.first_name} ${c.last_name || ''}`.trim()

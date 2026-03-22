@@ -139,7 +139,7 @@ export default function AdminClients() {
       </div>
 
       <Dialog open={!!detailClient} onOpenChange={(v) => !v && setDetailClient(null)}>
-        <DialogContent className="max-w-md max-h-[82vh] overflow-y-auto border-border/60 bg-background">
+        <DialogContent className="miniapp-dialog-offset max-w-md max-h-[82vh] overflow-y-auto border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">Карточка клиента</DialogTitle>
           </DialogHeader>
@@ -302,7 +302,7 @@ export default function AdminClients() {
       </div>
 
       <Dialog open={!!selectedClient && !showOrders} onOpenChange={() => setSelectedClient(null)}>
-        <DialogContent className="max-w-md border-border/60 bg-background">
+        <DialogContent className="miniapp-dialog-offset max-w-md border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">Редактирование клиента</DialogTitle>
           </DialogHeader>
@@ -375,7 +375,7 @@ export default function AdminClients() {
           setShowOrders(false);
         }}
       >
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto border-border/60 bg-background">
+        <DialogContent className="miniapp-dialog-offset max-w-lg max-h-[80vh] overflow-y-auto border-border/60 bg-background">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium tracking-wide">
               Заказы —{' '}

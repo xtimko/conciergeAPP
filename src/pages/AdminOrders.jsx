@@ -747,7 +747,7 @@ export default function AdminOrders() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
-          className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden border-border/60 bg-background gap-0"
+          className="miniapp-dialog-offset max-w-lg max-h-[90vh] flex flex-col overflow-hidden border-border/60 bg-background gap-0"
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
         >

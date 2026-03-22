@@ -293,4 +293,19 @@
       env(safe-area-inset-bottom, 0px) + var(--tma-content-bottom, 0px) + 18px
     );
   }
+
+  /**
+   * Модалки по центру экрана: опустить ниже, чтобы крестик/шапка не заходили под панель Mini App.
+   * Совместимо с dialog.jsx (top-1/2 -translate-y-1/2): смещаем точку привязки вниз.
+   */
+  /* Сильнее опускаем модалку: крестик и шапка не заходят под панель Mini App */
+  .miniapp-dialog-offset {
+    top: calc(
+      50% +
+        max(
+          1.75rem,
+          calc(env(safe-area-inset-top, 0px) + var(--tma-content-top, 0px) + 14px)
+        )
+    ) !important;
+  }
 }
