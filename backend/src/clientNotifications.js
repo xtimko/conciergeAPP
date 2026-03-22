@@ -9,11 +9,7 @@
  * Новый тип: добавь в NOTIFICATION_REGISTRY и вызови notifyClientTelegram(...).
  */
 import { sendTelegramMessage, sendTelegramPhoto } from "./telegramBotApi.js";
-import {
-  formatOrderCreatedRichRu,
-  formatOrderCreatedPhotoCaptionRu,
-  formatOrderStatusMessageRu
-} from "./notificationMessages.js";
+import { formatOrderCreatedNotificationRu, formatOrderStatusMessageRu } from "./notificationMessages.js";
 
 /** Значения по умолчанию для новых и существующих пользователей */
 export const DEFAULT_NOTIFY_PREFERENCES = {
@@ -49,16 +45,22 @@ export function mergeNotifyPreferences(currentUser, patch) {
   };
 }
 
+/**
+ * Одно сообщение: фото с подписью (если есть публичный URL), иначе только текст.
+ * Подпись к фото ≤ 1024 символов (лимит Telegram).
+ */
 async function sendOrderCreatedTelegram(botToken, chatId, { order }) {
-  const text = formatOrderCreatedRichRu(order);
   const raw = String(order?.image_url || "").trim();
-  if (raw && /^https?:\/\//i.test(raw)) {
-    const cap = formatOrderCreatedPhotoCaptionRu(order);
-    const ok = await sendTelegramPhoto(botToken, chatId, raw, cap);
-    if (!ok) {
-      console.warn("[clientNotifications] sendPhoto не удался — отправляем только текст");
-    }
+  const hasPublicPhoto = raw && /^https?:\/\//i.test(raw);
+
+  if (hasPublicPhoto) {
+    const caption = formatOrderCreatedNotificationRu(order, { maxTotal: 1024 });
+    const ok = await sendTelegramPhoto(botToken, chatId, raw, caption);
+    if (ok) return;
+    console.warn("[clientNotifications] sendPhoto не удался — отправляем текстом");
   }
+
+  const text = formatOrderCreatedNotificationRu(order, { maxTotal: 4096 });
   await sendTelegramMessage(botToken, chatId, text);
 }
 

@@ -1,13 +1,13 @@
-/** Тексты уведомлений клиенту в Telegram (RU). Позже: en по user.language. */
+/** Тексты уведомлений клиенту в Telegram (RU). Сдержанный тон, без лишней графики в тексте. */
 
 export const ORDER_STATUS_LABELS_RU = {
-  pending: "Ожидает",
-  confirmed: "Подтверждён",
-  sourcing: "В поиске",
-  shipping: "В пути",
-  awaiting_pickup: "Ожидает выдачи",
-  delivered: "Доставлен",
-  cancelled: "Отменён"
+  pending: "ожидает подтверждения",
+  confirmed: "подтверждён",
+  sourcing: "в поиске",
+  shipping: "в пути",
+  awaiting_pickup: "ожидает выдачи",
+  delivered: "доставлен",
+  cancelled: "отменён"
 };
 
 const CATEGORY_RU = {
@@ -28,81 +28,100 @@ function formatMoney(order) {
   return `${formatted} ${cur}`;
 }
 
-function formatEstimated(order) {
+function formatEstimatedLine(order) {
   const r = String(order.estimated_days_range || "").trim();
-  if (r) return `ориентир ${r} дн.`;
+  if (r) return `Срок: ${r.replace(/-/g, "–")} дней`;
   const d = Number(order.estimated_days || 0);
-  if (d > 0) return `ориентир до ${d} дн.`;
+  if (d > 0) return `Срок: до ${d} дн.`;
   return "";
 }
 
-function formatBonusBlock(order) {
+function formatClientBonusLine(order) {
   const ref = Number(order.referral_bonus || 0);
   if (ref <= 0) return null;
-  const subtract = order.client_bonus_mode === "subtract";
-  if (subtract) {
-    return `💎 Баллы: после доставки спишется ${ref} с баланса (по условиям заказа).`;
+  if (order.client_bonus_mode === "subtract") {
+    return `По условиям заказа после доставки будет списано ${ref} баллов.`;
   }
-  return `💎 Баллы: после доставки начислим ${ref} на ваш счёт.`;
+  return `После доставки на ваш счёт будет начислено ${ref} баллов.`;
 }
 
-function formatReferrerBonusLine(order) {
+function formatReferrerLine(order) {
   const rb = Number(order.referrer_bonus || 0);
   if (rb <= 0 || !String(order.referrer_email || "").trim()) return null;
-  return `🤝 Бонус пригласившему после доставки: ${rb} балл.`;
+  return `Реферальный бонус после доставки заказа: ${rb} баллов.`;
 }
 
 /**
- * Короткая подпись к фото (Telegram ≤ 1024 символов).
+ * Уведомление о создании заказа: один блок текста.
+ * @param {object} opts — maxTotal (1024 для подписи к фото, иначе до 4096); maxNotes — лимит комментария
  */
-export function formatOrderCreatedPhotoCaptionRu(order) {
-  const id = order.id || "";
-  const name = order.item_name || "Заказ";
-  const price = formatMoney(order);
-  const st = ORDER_STATUS_LABELS_RU[order.status] || order.status;
-  return `📦 ${id}\n${name}\n${price}\nСтатус: ${st}`;
-}
+export function formatOrderCreatedNotificationRu(order, opts = {}) {
+  const maxTotal = typeof opts.maxTotal === "number" ? opts.maxTotal : 4096;
+  const shortCaption = maxTotal <= 1024;
+  const maxNotes =
+    typeof opts.maxNotes === "number" ? opts.maxNotes : shortCaption ? 160 : 1200;
 
-/**
- * Полное текстовое уведомление о создании заказа.
- */
-export function formatOrderCreatedRichRu(order) {
   const lines = [];
-  lines.push("✅ Заказ принят в работу");
+
+  lines.push("Заказ принят");
   lines.push("");
-  lines.push(`📋 Номер: ${order.id || "—"}`);
-  lines.push(`📦 ${order.item_name || "Товар"}`);
-  if (order.brand) lines.push(`🏷 Бренд: ${order.brand}`);
-  if (order.item_size) lines.push(`📏 Размер: ${order.item_size}`);
+  lines.push(String(order.id || "—"));
+  lines.push("");
+  lines.push(String(order.item_name || "Позиция").trim() || "Позиция");
+
+  const details = [];
+  if (order.brand) details.push(String(order.brand).trim());
+  if (order.item_size) details.push(String(order.item_size).trim());
+  if (details.length) lines.push(details.join(" · "));
+
   const cat = CATEGORY_RU[order.item_category] || order.item_category;
-  if (cat) lines.push(`📂 Категория: ${cat}`);
-  lines.push(`💰 Стоимость: ${formatMoney(order)}`);
-  const est = formatEstimated(order);
-  if (est) lines.push(`⏱ Срок: ${est}`);
+  if (cat) lines.push(cat);
+
+  lines.push("");
+  lines.push(formatMoney(order));
+
+  const est = formatEstimatedLine(order);
+  if (est) lines.push(est);
+
   const st = ORDER_STATUS_LABELS_RU[order.status] || order.status;
-  lines.push(`📍 Статус: ${st}`);
-  const bonus = formatBonusBlock(order);
-  if (bonus) lines.push(bonus);
-  const refLine = formatReferrerBonusLine(order);
+  lines.push(`Статус: ${st}`);
+
+  const bonus = formatClientBonusLine(order);
+  if (bonus) {
+    lines.push("");
+    lines.push(bonus);
+  }
+
+  const refLine = formatReferrerLine(order);
   if (refLine) lines.push(refLine);
+
   const notes = String(order.notes || "").trim();
   if (notes) {
     lines.push("");
-    lines.push(`📝 Комментарий: ${notes.slice(0, 500)}${notes.length > 500 ? "…" : ""}`);
+    const cut = notes.length > maxNotes ? `${notes.slice(0, maxNotes - 1)}…` : notes;
+    lines.push(`Комментарий: ${cut}`);
   }
+
   const img = String(order.image_url || "").trim();
   if (img.startsWith("data:")) {
     lines.push("");
-    lines.push("📷 Фото прикреплено к заказу — откройте приложение, чтобы посмотреть.");
+    lines.push("Изображение доступно в приложении.");
   }
+
   lines.push("");
-  lines.push("Мы напишем, когда статус изменится.");
-  return lines.join("\n");
+  lines.push("Мы сообщим об изменении статуса.");
+
+  let text = lines.join("\n");
+  if (text.length > maxTotal) {
+    text = `${text.slice(0, maxTotal - 1).trim()}…`;
+  }
+  return text;
 }
 
+/** Обновление статуса — коротко, без эмодзи в каждой строке */
 export function formatOrderStatusMessageRu(order) {
   const title = order.item_name || "Заказ";
   const st = ORDER_STATUS_LABELS_RU[order.status] || order.status;
-  const num = order.id ? `\nНомер: ${order.id}` : "";
-  return `📦 Обновление по заказу «${title}»${num}\n\nНовый статус: ${st}`;
+  const id = order.id ? `${order.id}\n\n` : "";
+  return `Обновление по заказу\n\n${id}«${title}»\n\nНовый статус: ${st}`;
 }
