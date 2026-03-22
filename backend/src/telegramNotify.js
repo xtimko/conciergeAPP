@@ -56,14 +56,22 @@ export function findUserByClientEmail(db, clientEmail) {
     if (byTg) return byTg;
   }
 
-  const mTg = /^tg-(\d+)@client\.internal$/i.exec(e);
+  // tg-<любой id>@client.internal (раньше были только цифры — ломалось для dev и нестандартных id)
+  const mTg = /^tg-([^@]+)@client\.internal$/i.exec(e);
   if (mTg) {
-    const u = db.users.find((x) => String(x.telegram_id || "") === mTg[1]);
+    let key = mTg[1].trim();
+    try {
+      key = decodeURIComponent(key);
+    } catch {
+      /* ignore */
+    }
+    const u = db.users.find((x) => String(x.telegram_id || "").trim() === key);
     if (u) return u;
   }
-  const mLocal = /^tg_(\d+)@concierge-app\.local$/i.exec(e);
+  const mLocal = /^tg_([^@]+)@concierge-app\.local$/i.exec(e);
   if (mLocal) {
-    const u = db.users.find((x) => String(x.telegram_id || "") === mLocal[1]);
+    const key = mLocal[1].trim();
+    const u = db.users.find((x) => String(x.telegram_id || "").trim() === key);
     if (u) return u;
   }
   const mId = /^id-([^@]+)@client\.internal$/i.exec(e);
@@ -81,7 +89,7 @@ export function findUserForOrder(db, order) {
   const u1 = findUserByClientEmail(db, order?.client_email);
   if (u1) return u1;
   const tid = String(order?.client_telegram_id || "").trim();
-  if (tid && /^\d{5,16}$/.test(tid)) {
+  if (tid) {
     return db.users.find((x) => String(x.telegram_id || "").trim() === tid) || null;
   }
   return null;
@@ -91,12 +99,18 @@ export function findUserForOrder(db, order) {
 export function deriveClientTelegramIdFromBody(body) {
   const b = body || {};
   const direct = String(b.client_telegram_id || "").trim();
-  if (direct && /^\d{5,16}$/.test(direct)) return direct;
+  if (direct) return direct;
   const e = String(b.client_email || "").trim();
-  const m = /^tg-(\d+)@client\.internal$/i.exec(e);
-  if (m) return m[1];
-  const m2 = /^tg_(\d+)@concierge-app\.local$/i.exec(e);
-  if (m2) return m2[1];
+  const m = /^tg-([^@]+)@client\.internal$/i.exec(e);
+  if (m) {
+    try {
+      return decodeURIComponent(m[1]).trim();
+    } catch {
+      return m[1].trim();
+    }
+  }
+  const m2 = /^tg_([^@]+)@concierge-app\.local$/i.exec(e);
+  if (m2) return m2[1].trim();
   if (/^\d{5,16}$/.test(e)) return e;
   return "";
 }
@@ -141,13 +155,22 @@ export function notifyOrderInTelegramChat(botToken, db, order, kind) {
     );
     return;
   }
+  const idStr = String(tgId).trim();
+  if (!/^\d+$/.test(idStr)) {
+    console.warn(
+      "[telegramNotify] telegram_id не число — Bot API ждёт числовой chat_id. Сейчас:",
+      idStr,
+      "(часто это тестовый аккаунт; у реального пользователя в Telegram id всегда цифры.)"
+    );
+    return;
+  }
   let text;
   if (kind === "created") {
     text = formatOrderCreatedMessageRu(order);
   } else {
     text = formatOrderStatusMessageRu(order);
   }
-  sendTelegramMessage(botToken, tgId, text).catch((e) => {
+  sendTelegramMessage(botToken, idStr, text).catch((e) => {
     console.warn("[telegramNotify] ошибка отправки:", e?.message || e);
   });
 }
