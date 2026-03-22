@@ -31,6 +31,7 @@ export async function sendTelegramMessage(botToken, chatId, text) {
   const body = JSON.stringify({
     chat_id: id,
     text: text.slice(0, 4000),
+    parse_mode: "HTML",
     disable_web_page_preview: true
   });
   const dispatcher = getTelegramProxyDispatcher();
@@ -85,6 +86,7 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption) {
     chat_id: id,
     photo: raw,
     caption: cap || undefined,
+    parse_mode: "HTML",
     disable_notification: false
   });
   const dispatcher = getTelegramProxyDispatcher();

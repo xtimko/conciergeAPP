@@ -15,7 +15,7 @@ import {
   notifyOrderInTelegramChat,
   deriveClientTelegramIdFromBody,
 } from "./telegramNotify.js";
-import { mergeNotifyPreferences, notifyDeliveredBonusesTelegram } from "./clientNotifications.js";
+import { mergeNotifyPreferences } from "./clientNotifications.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -313,40 +313,30 @@ app.get("/api/orders", authRequired, (req, res) => {
   res.json(mine);
 });
 
-/**
- * Начисляет бонусы по заказу один раз при статусе delivered.
- * @returns {{ clientDelta: number, referrerDelta: number } | null} — суммы для уведомлений в Telegram; null если бонусы не менялись
- */
+/** Начисляет бонусы по заказу один раз при статусе delivered. */
 function applyOrderBonusesIfNeeded(db, order) {
-  if (order.bonuses_applied || order.status !== "delivered") return null;
+  if (order.bonuses_applied || order.status !== "delivered") return;
   const idx = db.orders.findIndex((o) => o.id === order.id);
-  if (idx < 0) return null;
+  if (idx < 0) return;
 
   const refBonus = Number(order.referrer_bonus || 0);
   const referralBonus = Number(order.referral_bonus || 0);
   const mode = order.client_bonus_mode === "subtract" ? -1 : 1;
-  const clientDeltaRaw = referralBonus * mode;
+  const clientDelta = referralBonus * mode;
 
-  let appliedClient = 0;
-  let appliedReferrer = 0;
-
-  if (clientDeltaRaw !== 0 && order.client_email) {
+  if (clientDelta !== 0 && order.client_email) {
     const uidx = db.users.findIndex((u) => u.email === order.client_email);
     if (uidx >= 0) {
-      db.users[uidx].bonus_balance = Number(db.users[uidx].bonus_balance || 0) + clientDeltaRaw;
-      appliedClient = clientDeltaRaw;
+      db.users[uidx].bonus_balance = Number(db.users[uidx].bonus_balance || 0) + clientDelta;
     }
   }
   if (refBonus > 0 && order.referrer_email) {
     const ridx = db.users.findIndex((u) => u.email === order.referrer_email);
     if (ridx >= 0) {
       db.users[ridx].bonus_balance = Number(db.users[ridx].bonus_balance || 0) + refBonus;
-      appliedReferrer = refBonus;
     }
   }
   db.orders[idx].bonuses_applied = true;
-  if (appliedClient === 0 && appliedReferrer === 0) return null;
-  return { clientDelta: appliedClient, referrerDelta: appliedReferrer };
 }
 
 app.post("/api/orders", authRequired, adminRequired, (req, res) => {
@@ -379,13 +369,10 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
     updated_date: nowIso()
   };
   db.orders.push(order);
-  const bonusOnCreate = applyOrderBonusesIfNeeded(db, order);
+  applyOrderBonusesIfNeeded(db, order);
   writeDb(db);
   if (TELEGRAM_BOT_TOKEN && (order.client_email || order.client_telegram_id)) {
     notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, order, "created");
-  }
-  if (TELEGRAM_BOT_TOKEN && bonusOnCreate) {
-    notifyDeliveredBonusesTelegram(TELEGRAM_BOT_TOKEN, db, order, bonusOnCreate);
   }
   res.status(201).json(order);
 });
@@ -407,7 +394,7 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   }
   db.orders[idx] = { ...before, ...body, updated_date: nowIso() };
   db.orders[idx].client_telegram_id = deriveClientTelegramIdFromBody(db.orders[idx]);
-  const bonusResult = applyOrderBonusesIfNeeded(db, db.orders[idx]);
+  applyOrderBonusesIfNeeded(db, db.orders[idx]);
   writeDb(db);
   const after = db.orders[idx];
   const statusChanged = before.status !== after.status;
@@ -431,10 +418,6 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
     } else if (!after.client_email && !after.client_telegram_id) {
       console.warn("[orders] статус изменён, но у заказа нет client_email / client_telegram_id — уведомление не отправится.");
     }
-  }
-
-  if (TELEGRAM_BOT_TOKEN && bonusResult) {
-    notifyDeliveredBonusesTelegram(TELEGRAM_BOT_TOKEN, db, after, bonusResult);
   }
 
   res.json(after);
