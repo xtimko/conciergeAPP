@@ -1,4 +1,5 @@
 import { exportCsvString } from '@/lib/exportOrdersCsv';
+import { formatOrderDisplayId } from '@/lib/orderDisplay';
 
 function escapeCell(val) {
   const s = val == null ? '' : String(val);
@@ -18,6 +19,7 @@ function rowsToCsv(headers, rows) {
 export function buildDeliveredPnLCsv(orders) {
   const delivered = (orders || []).filter((o) => o.status === 'delivered');
   const headers = [
+    'номер',
     'id',
     'created_date',
     'client_name',
@@ -32,6 +34,7 @@ export function buildDeliveredPnLCsv(orders) {
     const price = Number(o.price || 0);
     const cost = Number(o.cost_price || 0);
     return [
+      formatOrderDisplayId(o),
       o.id,
       o.created_date,
       o.client_name,

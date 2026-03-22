@@ -2,8 +2,14 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import jwt from "jsonwebtoken";
-import { nanoid } from "nanoid";
-import { createUserFromTelegram, nowIso, readDb, writeDb } from "./db.js";
+import {
+  createUserFromTelegram,
+  nowIso,
+  readDb,
+  writeDb,
+  nextOrderPublicId,
+  ensureUserPublicIds,
+} from "./db.js";
 import { verifyTelegramInitData } from "./telegramAuth.js";
 import { sendTelegramMessage, formatOrderStatusMessageRu } from "./telegramNotify.js";
 
@@ -80,7 +86,7 @@ app.post("/api/auth/telegram", (req, res) => {
   const db = readDb();
   let user = db.users.find((u) => u.telegram_id === String(telegramUser.id));
   if (!user) {
-    user = createUserFromTelegram(telegramUser);
+    user = createUserFromTelegram(telegramUser, db);
     user.telegram_username = telegramUser.username || "";
     if (db.users.length === 0) {
       user.role = "admin";
@@ -316,7 +322,7 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   const body = req.body || {};
   const est = normalizeEstimatedDays(body);
   const order = {
-    id: nanoid(),
+    id: nextOrderPublicId(db),
     client_email: body.client_email || "",
     client_name: body.client_name || "",
     item_name: body.item_name || "",
@@ -416,6 +422,9 @@ function migrateDbOnce() {
       u.address_entrance = "";
       changed = true;
     }
+  }
+  if (ensureUserPublicIds(db)) {
+    changed = true;
   }
   for (const o of db.orders) {
     if (o.bonuses_applied === undefined) {

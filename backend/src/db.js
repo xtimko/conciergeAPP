@@ -31,11 +31,50 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
-export function createUserFromTelegram(telegramUser) {
+/** Следующий номер CLI-000001 (для отображения и экспорта). */
+export function nextClientPublicId(db) {
+  let max = 0;
+  for (const u of db.users) {
+    const m = /^CLI-(\d+)$/.exec(u.public_id || "");
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `CLI-${String(max + 1).padStart(6, "0")}`;
+}
+
+/** Следующий номер заказа CON-000001. */
+export function nextOrderPublicId(db) {
+  let max = 0;
+  for (const o of db.orders) {
+    const m = /^CON-(\d+)$/.exec(o.id || "");
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `CON-${String(max + 1).padStart(6, "0")}`;
+}
+
+/** Проставить public_id клиентам без номера (миграция). */
+export function ensureUserPublicIds(db) {
+  let max = 0;
+  for (const u of db.users) {
+    const m = /^CLI-(\d+)$/.exec(u.public_id || "");
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  let changed = false;
+  for (const u of db.users) {
+    if (!u.public_id) {
+      max += 1;
+      u.public_id = `CLI-${String(max).padStart(6, "0")}`;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+export function createUserFromTelegram(telegramUser, db) {
   const firstName = telegramUser.first_name || "Client";
   const lastName = telegramUser.last_name || "";
   return {
     id: nanoid(),
+    public_id: nextClientPublicId(db),
     telegram_id: String(telegramUser.id),
     role: "client",
     first_name: firstName,

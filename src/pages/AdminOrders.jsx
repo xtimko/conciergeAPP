@@ -17,6 +17,7 @@ import ImageUploadField from '@/components/admin/ImageUploadField';
 import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
 import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
 import { getClientEmailForOrder } from '@/lib/clientDisplay';
+import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
 
 function inDateRange(iso, fromStr, toStr) {
@@ -639,7 +640,7 @@ export default function AdminOrders() {
                   <p className="text-xs text-muted-foreground">{order.client_name || order.client_email}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{getStatusLabel(order.status, 'ru')}</p>
                   <p className="text-[10px] text-muted-foreground/80 mt-0.5 font-mono truncate">
-                    ID: {order.id}
+                    {formatOrderDisplayId(order)}
                     {order.updated_date ? ` · обн. ${new Date(order.updated_date).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
                   </p>
                 </div>

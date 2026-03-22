@@ -15,6 +15,7 @@ import { Package, Calendar, Tag, Banknote, Clock, Copy, Check } from 'lucide-rea
 import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics';
 import { toast } from 'sonner';
 import { parseEstimatedDaysFromOrder } from '@/lib/estimatedDelivery';
+import { formatOrderDisplayId } from '@/lib/orderDisplay';
 
 function formatDate(iso, locale) {
   if (!iso) return null;
@@ -273,10 +274,10 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
             <div className="flex items-start justify-between gap-2 py-2 border-b border-border/10 mb-2">
               <div className="flex items-center gap-2 text-muted-foreground min-w-0">
                 <Tag className="w-4 h-4 shrink-0" />
-                <span className="text-xs">{lang === 'ru' ? 'ID заказа' : 'Order ID'}</span>
+                <span className="text-xs">{lang === 'ru' ? 'Номер заказа' : 'Order no.'}</span>
               </div>
               <div className="flex items-center gap-1 min-w-0">
-                <span className="text-[11px] font-mono text-right break-all">{order.id}</span>
+                <span className="text-[11px] font-mono text-right break-all">{formatOrderDisplayId(order)}</span>
                 <Button
                   type="button"
                   variant="ghost"

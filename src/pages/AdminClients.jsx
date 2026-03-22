@@ -12,7 +12,12 @@ import { toast } from 'sonner';
 import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
 import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
 import { buildClientDeliveryAddress } from '@/lib/clientAddress';
-import { getClientDisplayHandle, getClientPrimaryName, getClientEmailForOrder } from '@/lib/clientDisplay';
+import {
+  getClientDisplayHandle,
+  getClientPrimaryName,
+  getClientEmailForOrder,
+  getClientPublicId,
+} from '@/lib/clientDisplay';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -142,14 +147,18 @@ export default function AdminClients() {
             <div className="space-y-0 mt-1">
               {[
                 ['Имя', [detailClient.first_name, detailClient.last_name].filter(Boolean).join(' ').trim()],
-                ['ID', detailClient.id],
+                ['Номер клиента', detailClient.public_id || getClientPublicId(detailClient)],
                 ['Телефон', detailClient.phone],
                 [
                   'Telegram',
                   detailClient.telegram_username
                     ? `@${String(detailClient.telegram_username).replace(/^@/, '')}`
-                    : detailClient.telegram_id || '',
+                    : '',
                 ],
+                ...(detailClient.telegram_id
+                  ? [['Telegram ID', String(detailClient.telegram_id)]]
+                  : []),
+                ['ID в системе', detailClient.id],
                 ['Город', detailClient.city],
                 ['Улица', detailClient.address_street],
                 ['Дом', detailClient.address_house],
@@ -234,7 +243,7 @@ export default function AdminClients() {
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {getClientPrimaryName(client)
-                      ? getClientDisplayHandle(client)
+                      ? getClientPublicId(client)
                       : [client.phone, client.city].filter(Boolean).join(' · ') || '\u00a0'}
                   </p>
                   <div className="flex gap-3 mt-1 flex-wrap">

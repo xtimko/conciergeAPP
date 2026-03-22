@@ -5,6 +5,7 @@ import GlassCard from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, Users, Package, TrendingUp, Wallet } from 'lucide-react';
 import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
+import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { getStatusLabel } from '@/lib/i18n';
 
 export default function AdminDashboard() {
@@ -95,6 +96,9 @@ export default function AdminDashboard() {
                 className="flex items-center justify-between gap-2 py-2 border-b border-border/10 last:border-0"
               >
                 <div className="min-w-0">
+                  <p className="text-[10px] text-muted-foreground/90 font-mono truncate mb-0.5">
+                    {formatOrderDisplayId(order)}
+                  </p>
                   <p className="text-sm font-light truncate">{order.item_name}</p>
                   <p className="text-xs text-muted-foreground truncate">{subLine}</p>
                 </div>

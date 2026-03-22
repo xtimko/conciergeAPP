@@ -1,3 +1,5 @@
+import { formatOrderDisplayId } from '@/lib/orderDisplay';
+
 /** Экранирование поля для CSV (RFC-совместимо для Excel). */
 function escapeCell(val) {
   const s = val == null ? '' : String(val);
@@ -8,6 +10,7 @@ function escapeCell(val) {
 }
 
 const ORDER_COLUMNS = [
+  { key: 'номер', header: 'номер', compute: (o) => formatOrderDisplayId(o) },
   { key: 'id', header: 'id' },
   { key: 'created_date', header: 'created_date' },
   { key: 'updated_date', header: 'updated_date' },
@@ -32,7 +35,12 @@ const ORDER_COLUMNS = [
 function buildCsvString(orders) {
   const header = ORDER_COLUMNS.map((c) => c.header).join(',');
   const body = orders
-    .map((o) => ORDER_COLUMNS.map((c) => escapeCell(o[c.key])).join(','))
+    .map((o) =>
+      ORDER_COLUMNS.map((c) => {
+        const raw = c.compute ? c.compute(o) : o[c.key];
+        return escapeCell(raw);
+      }).join(','),
+    )
     .join('\n');
   return `\uFEFF${header}\n${body}`;
 }
