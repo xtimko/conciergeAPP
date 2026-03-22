@@ -11,7 +11,10 @@ import {
   ensureUserPublicIds,
 } from "./db.js";
 import { verifyTelegramInitData } from "./telegramAuth.js";
-import { sendTelegramMessage, formatOrderStatusMessageRu } from "./telegramNotify.js";
+import {
+  notifyOrderInTelegramChat,
+  deriveClientTelegramIdFromBody,
+} from "./telegramNotify.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -324,6 +327,7 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   const order = {
     id: nextOrderPublicId(db),
     client_email: body.client_email || "",
+    client_telegram_id: deriveClientTelegramIdFromBody(body),
     client_name: body.client_name || "",
     item_name: body.item_name || "",
     item_size: body.item_size || "",
@@ -348,6 +352,9 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   db.orders.push(order);
   applyOrderBonusesIfNeeded(db, order);
   writeDb(db);
+  if (TELEGRAM_BOT_TOKEN && (order.client_email || order.client_telegram_id)) {
+    notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, order, "created");
+  }
   res.status(201).json(order);
 });
 
@@ -367,17 +374,17 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
     body.estimated_days_range = est.estimated_days_range;
   }
   db.orders[idx] = { ...before, ...body, updated_date: nowIso() };
+  db.orders[idx].client_telegram_id = deriveClientTelegramIdFromBody(db.orders[idx]);
   applyOrderBonusesIfNeeded(db, db.orders[idx]);
   writeDb(db);
   const after = db.orders[idx];
 
-  if (TELEGRAM_BOT_TOKEN && before.status !== after.status && after.client_email) {
-    const client = db.users.find((u) => u.email === after.client_email);
-    const tgId = client?.telegram_id;
-    if (tgId) {
-      const msg = formatOrderStatusMessageRu(after);
-      sendTelegramMessage(TELEGRAM_BOT_TOKEN, tgId, msg).catch(() => {});
-    }
+  if (
+    TELEGRAM_BOT_TOKEN &&
+    before.status !== after.status &&
+    (after.client_email || after.client_telegram_id)
+  ) {
+    notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, after, "status");
   }
 
   res.json(after);
