@@ -86,13 +86,11 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  /** off — даты скрыты; range — фильтр «С / По» */
-  const [dateFilterMode, setDateFilterMode] = useState('off');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkApplyStatus, setBulkApplyStatus] = useState('pending');
   const [copiedId, setCopiedId] = useState(null);
-  /** created_desc | created_asc | updated_desc */
+  /** created_desc | created_asc | updated_desc | date_range (промежуток + поля С/По) */
   const [sortMode, setSortMode] = useState('created_desc');
   const queryClient = useQueryClient();
 
@@ -132,10 +130,10 @@ export default function AdminOrders() {
       return true;
     }).filter((o) => {
       if (statusFilter && o.status !== statusFilter) return false;
-      if (dateFilterMode === 'range' && !inDateRange(o.created_date, dateFrom, dateTo)) return false;
+      if (sortMode === 'date_range' && !inDateRange(o.created_date, dateFrom, dateTo)) return false;
       return true;
     });
-  }, [orders, search, orderFilter, statusFilter, dateFrom, dateTo, dateFilterMode]);
+  }, [orders, search, orderFilter, statusFilter, dateFrom, dateTo, sortMode]);
 
   const displayedOrders = useMemo(() => {
     const arr = [...filtered];
@@ -144,7 +142,7 @@ export default function AdminOrders() {
     const byCreatedAsc = (a, b) => t(a.created_date) - t(b.created_date);
     const byUpdatedDesc = (a, b) =>
       t(b.updated_date || b.created_date) - t(a.updated_date || a.created_date);
-    if (sortMode === 'created_desc') arr.sort(byCreatedDesc);
+    if (sortMode === 'created_desc' || sortMode === 'date_range') arr.sort(byCreatedDesc);
     else if (sortMode === 'created_asc') arr.sort(byCreatedAsc);
     else if (sortMode === 'updated_desc') arr.sort(byUpdatedDesc);
     return arr;
@@ -358,7 +356,7 @@ export default function AdminOrders() {
   const resetFilters = () => {
     setDateFrom('');
     setDateTo('');
-    setDateFilterMode('off');
+    setSortMode('created_desc');
     setStatusFilter('');
     setOrderFilter('all');
     setSearch('');
@@ -367,10 +365,10 @@ export default function AdminOrders() {
   };
 
   const hasActiveFilters = !!(
-    (dateFilterMode === 'range' && (dateFrom || dateTo)) ||
     statusFilter ||
     search.trim() ||
-    orderFilter !== 'all'
+    orderFilter !== 'all' ||
+    sortMode !== 'created_desc'
   );
 
   const saveQuickStatus = async () => {
@@ -486,9 +484,18 @@ export default function AdminOrders() {
             </SelectContent>
           </Select>
         </div>
-        <div className="min-w-[140px] flex-1 sm:max-w-[190px]">
+        <div className="min-w-[160px] flex-1 sm:max-w-[220px]">
           <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Сортировка</Label>
-          <Select value={sortMode} onValueChange={setSortMode}>
+          <Select
+            value={sortMode}
+            onValueChange={(v) => {
+              if (sortMode === 'date_range' && v !== 'date_range') {
+                setDateFrom('');
+                setDateTo('');
+              }
+              setSortMode(v);
+            }}
+          >
             <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
               <SelectValue />
             </SelectTrigger>
@@ -502,35 +509,13 @@ export default function AdminOrders() {
               <SelectItem value="updated_desc" className="text-xs">
                 Обновлён ↓
               </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="min-w-[120px] flex-1 sm:max-w-[160px]">
-          <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">По датам</Label>
-          <Select
-            value={dateFilterMode}
-            onValueChange={(v) => {
-              setDateFilterMode(v);
-              if (v === 'off') {
-                setDateFrom('');
-                setDateTo('');
-              }
-            }}
-          >
-            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="off" className="text-xs">
-                Нет
-              </SelectItem>
-              <SelectItem value="range" className="text-xs">
-                Промежуток
+              <SelectItem value="date_range" className="text-xs">
+                Промежуток дат
               </SelectItem>
             </SelectContent>
           </Select>
         </div>
-        {dateFilterMode === 'range' && (
+        {sortMode === 'date_range' && (
         <div className="flex flex-wrap gap-1.5 items-end">
           <div>
             <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none block">С</Label>
