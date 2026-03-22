@@ -1,58 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-function normalizePhoneDigits(s) {
-  return String(s || '').replace(/\D/g, '');
-}
-
-function matchesQuery(client, qRaw) {
-  const q = qRaw.trim().toLowerCase();
-  if (!q) return false;
-  const first = (client.first_name || '').trim().toLowerCase();
-  const last = (client.last_name || '').trim().toLowerCase();
-  const name = `${first} ${last}`.trim();
-  const full = (client.full_name || '').trim().toLowerCase();
-  const email = (client.email || '').trim().toLowerCase();
-  const tg = (client.telegram_username || '').toLowerCase().replace(/^@/, '');
-  const tgId = String(client.telegram_id || '');
-  const id = String(client.id || '').toLowerCase();
-  const publicId = String(client.public_id || '').trim().toLowerCase();
-  /** Только цифры из CLI-000123 → «000123», чтобы искать без префикса CLI- */
-  const publicDigits = normalizePhoneDigits(client.public_id || '');
-  const phoneDigits = normalizePhoneDigits(client.phone);
-  const qDigits = normalizePhoneDigits(q);
-
-  const fields = [name, first, last, full, email, tg, tgId, id, publicId, publicDigits, phoneDigits];
-
-  const tokens = q.split(/\s+/).filter(Boolean);
-  if (tokens.length > 1) {
-    return tokens.every((t) => fields.some((f) => String(f).includes(t)));
-  }
-
-  const single = tokens[0] || q;
-  const tgQuery = single.replace(/^@/, '').toLowerCase();
-
-  /** Номер CLI без слова CLI: ввод «000123», «123» (суффикс), полный «cli-000123» */
-  const matchPublicDigits =
-    publicDigits &&
-    qDigits.length >= 2 &&
-    (publicDigits === qDigits || publicDigits.endsWith(qDigits));
-
-  return (
-    name.includes(single) ||
-    first.includes(single) ||
-    last.includes(single) ||
-    full.includes(single) ||
-    email.includes(single) ||
-    tg.includes(tgQuery) ||
-    id.includes(single) ||
-    (publicId && publicId.includes(single)) ||
-    matchPublicDigits ||
-    (qDigits.length >= 2 && phoneDigits.includes(qDigits)) ||
-    (tgId && tgId.toLowerCase().includes(single.replace(/\D/g, '')))
-  );
-}
+import { filterClientsForOrderAutocomplete } from '@/lib/clientSearch';
 
 export default function ClientEmailAutocomplete({
   value,
@@ -60,14 +9,13 @@ export default function ClientEmailAutocomplete({
   onClientSelect,
   clients,
   label = 'Клиент *',
-  placeholder = 'Телефон, имя, фамилия, ник в Telegram…',
+  placeholder = 'Телефон, имя, фамилия, @telegram, номер CLI…',
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   const filtered = useMemo(() => {
-    if (!value || value.trim().length === 0) return [];
-    return clients.filter((c) => matchesQuery(c, value)).slice(0, 24);
+    return filterClientsForOrderAutocomplete(clients || [], value).slice(0, 24);
   }, [clients, value]);
 
   useEffect(() => {

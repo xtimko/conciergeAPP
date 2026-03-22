@@ -308,4 +308,24 @@
         )
     ) !important;
   }
+
+  /**
+   * Карточка клиента: привязка top + bottom к safe area (не центрирование 50%),
+   * иначе при длинном контенте низ модалки и кнопка «Закрыть» уезжают за экран.
+   */
+  .miniapp-client-sheet {
+    top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + var(--tma-content-top, 0px))) !important;
+    bottom: max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + var(--tma-content-bottom, 0px))) !important;
+    left: 50% !important;
+    right: auto !important;
+    width: calc(100% - 1.5rem) !important;
+    max-width: 28rem !important;
+    transform: translateX(-50%) !important;
+    max-height: none !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    gap: 0 !important;
+  }
 }

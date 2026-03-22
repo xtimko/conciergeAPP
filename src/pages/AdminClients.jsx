@@ -18,6 +18,7 @@ import {
   getClientEmailForOrder,
   getClientPublicId,
 } from '@/lib/clientDisplay';
+import { filterClientsForAdminList } from '@/lib/clientSearch';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -41,26 +42,7 @@ export default function AdminClients() {
     enabled: !!selectedClient && showOrders,
   });
 
-  const filtered = clients.filter((c) => {
-    const q = search.toLowerCase();
-    return (
-      !q ||
-      [
-        c.full_name,
-        c.first_name,
-        c.last_name,
-        c.email,
-        c.phone,
-        c.city,
-        c.referral_code,
-        c.id,
-        c.telegram_id,
-        c.telegram_username,
-      ].some((f) => String(f || '')
-        .toLowerCase()
-        .includes(q))
-    );
-  });
+  const filtered = filterClientsForAdminList(clients, search);
 
   const openEdit = (client) => {
     setDetailClient(null);
@@ -139,13 +121,13 @@ export default function AdminClients() {
       </div>
 
       <Dialog open={!!detailClient} onOpenChange={(v) => !v && setDetailClient(null)}>
-        <DialogContent className="miniapp-dialog-offset flex max-h-[min(88dvh,92vh)] min-h-0 w-[calc(100%-1.5rem)] max-w-md flex-col gap-0 overflow-hidden border-border/60 bg-background p-0">
-          <DialogHeader className="shrink-0 space-y-0 border-b border-border/10 px-5 pb-3 pt-5 text-left">
+        <DialogContent className="miniapp-client-sheet border-border/60 bg-background p-0">
+          <DialogHeader className="shrink-0 space-y-0 border-b border-border/10 px-5 pb-3 pr-12 pt-5 text-left">
             <DialogTitle className="text-sm font-medium tracking-wide">Карточка клиента</DialogTitle>
           </DialogHeader>
           {detailClient && (
             <>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2 [scrollbar-gutter:stable]">
                 <div className="space-y-0">
                   {[
                     ['Имя', [detailClient.first_name, detailClient.last_name].filter(Boolean).join(' ').trim()],
@@ -206,7 +188,7 @@ export default function AdminClients() {
                   })}
                 </div>
               </div>
-              <div className="shrink-0 border-t border-border/20 bg-background px-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-3">
+              <div className="shrink-0 border-t border-border/20 bg-background px-5 pb-3 pt-3 shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.12)]">
                 <Button
                   type="button"
                   variant="secondary"
