@@ -20,3 +20,14 @@ export function getClientPrimaryName(client) {
   if (client.full_name) return String(client.full_name).trim();
   return '';
 }
+
+/** Стабильный «email» заказа, если у клиента нет почты (связь с бэкендом). */
+export function getClientEmailForOrder(client) {
+  if (!client) return '';
+  const e = (client.email || '').trim();
+  if (e) return e;
+  if (client.telegram_id != null && String(client.telegram_id).trim() !== '') {
+    return `tg-${String(client.telegram_id).trim()}@client.internal`;
+  }
+  return `id-${String(client.id).trim()}@client.internal`;
+}

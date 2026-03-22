@@ -16,6 +16,7 @@ import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete'
 import ImageUploadField from '@/components/admin/ImageUploadField';
 import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
 import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
+import { getClientEmailForOrder } from '@/lib/clientDisplay';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
 
 function inDateRange(iso, fromStr, toStr) {
@@ -85,6 +86,8 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  /** off — даты скрыты; range — фильтр «С / По» */
+  const [dateFilterMode, setDateFilterMode] = useState('off');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkApplyStatus, setBulkApplyStatus] = useState('pending');
@@ -129,10 +132,10 @@ export default function AdminOrders() {
       return true;
     }).filter((o) => {
       if (statusFilter && o.status !== statusFilter) return false;
-      if (!inDateRange(o.created_date, dateFrom, dateTo)) return false;
+      if (dateFilterMode === 'range' && !inDateRange(o.created_date, dateFrom, dateTo)) return false;
       return true;
     });
-  }, [orders, search, orderFilter, statusFilter, dateFrom, dateTo]);
+  }, [orders, search, orderFilter, statusFilter, dateFrom, dateTo, dateFilterMode]);
 
   const displayedOrders = useMemo(() => {
     const arr = [...filtered];
@@ -282,7 +285,7 @@ export default function AdminOrders() {
     setClientAddress(client.delivery_address || '');
     setForm((prev) => ({
       ...prev,
-      client_email: client.email,
+      client_email: getClientEmailForOrder(client),
       client_name: name,
       referrer_email: client.referred_by || '',
     }));
@@ -295,7 +298,8 @@ export default function AdminOrders() {
   };
 
   const handleSave = async () => {
-    if (!editingOrder && (!selectedClientId || !form.client_email)) {
+    const selected = clients.find((c) => c.id === selectedClientId);
+    if (!editingOrder && (!selectedClientId || !selected)) {
       hapticError();
       toast.error('Выберите клиента из списка');
       return;
@@ -307,8 +311,13 @@ export default function AdminOrders() {
     }
 
     const est = normalizeEstimatedDaysInput(form.estimated_days);
+    const resolvedEmail =
+      !editingOrder && selected
+        ? (form.client_email || '').trim() || getClientEmailForOrder(selected)
+        : (form.client_email || '').trim();
     const data = {
       ...form,
+      client_email: resolvedEmail,
       price: form.price ? Number(form.price) : 0,
       cost_price: form.cost_price !== '' && form.cost_price != null ? Number(form.cost_price) : 0,
       estimated_days: est.estimated_days,
@@ -349,6 +358,7 @@ export default function AdminOrders() {
   const resetFilters = () => {
     setDateFrom('');
     setDateTo('');
+    setDateFilterMode('off');
     setStatusFilter('');
     setOrderFilter('all');
     setSearch('');
@@ -356,7 +366,12 @@ export default function AdminOrders() {
     toast.success('Фильтры сброшены');
   };
 
-  const hasActiveFilters = !!(dateFrom || dateTo || statusFilter || search.trim() || orderFilter !== 'all');
+  const hasActiveFilters = !!(
+    (dateFilterMode === 'range' && (dateFrom || dateTo)) ||
+    statusFilter ||
+    search.trim() ||
+    orderFilter !== 'all'
+  );
 
   const saveQuickStatus = async () => {
     if (!statusQuick) return;
@@ -490,6 +505,32 @@ export default function AdminOrders() {
             </SelectContent>
           </Select>
         </div>
+        <div className="min-w-[120px] flex-1 sm:max-w-[160px]">
+          <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">По датам</Label>
+          <Select
+            value={dateFilterMode}
+            onValueChange={(v) => {
+              setDateFilterMode(v);
+              if (v === 'off') {
+                setDateFrom('');
+                setDateTo('');
+              }
+            }}
+          >
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="off" className="text-xs">
+                Нет
+              </SelectItem>
+              <SelectItem value="range" className="text-xs">
+                Промежуток
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {dateFilterMode === 'range' && (
         <div className="flex flex-wrap gap-1.5 items-end">
           <div>
             <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none block">С</Label>
@@ -521,6 +562,7 @@ export default function AdminOrders() {
             Сброс
           </Button>
         </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -841,8 +883,7 @@ export default function AdminOrders() {
               <Label className="text-xs">Срок доставки (дн.)</Label>
               <Input
                 type="text"
-                inputMode="numeric"
-                placeholder="10 или 7-14"
+                placeholder=""
                 value={form.estimated_days}
                 onChange={(e) => updateField('estimated_days', e.target.value)}
                 className="mt-1 bg-transparent border-border/30"

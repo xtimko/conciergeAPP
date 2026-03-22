@@ -36,6 +36,10 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const lightboxUserDismissedRef = useRef(false);
+  const lightboxUrlRef = useRef(null);
+  useEffect(() => {
+    lightboxUrlRef.current = lightboxUrl;
+  }, [lightboxUrl]);
 
   useEffect(() => {
     setLightboxUrl(null);
@@ -77,10 +81,13 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
   useEffect(() => {
     if (!lightboxUrl) return;
     const onKey = (e) => {
-      if (e.key === 'Escape') closeLightbox();
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      closeLightbox();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [lightboxUrl, closeLightbox]);
 
   const copyId = async () => {
@@ -223,8 +230,13 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     <Drawer
       open={open && !!order}
       onOpenChange={(isOpen) => {
+        if (!isOpen && lightboxUrlRef.current) {
+          closeLightbox();
+          return;
+        }
         if (!isOpen) onClose?.();
       }}
+      dismissible={!lightboxUrl}
       shouldScaleBackground={false}
     >
       <DrawerContent className="max-h-[88vh] overflow-y-auto border-0 bg-background px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-1 outline-none">
@@ -322,7 +334,11 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     </Drawer>
     {lightboxUrl && typeof document !== 'undefined'
       ? createPortal(
-          <div className="fixed inset-0 z-[21000] flex items-center justify-center p-4 touch-manipulation">
+          <div
+            className="fixed inset-0 z-[21000] flex items-center justify-center p-4 touch-manipulation"
+            role="presentation"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               aria-label={lang === 'ru' ? 'Закрыть фото' : 'Close photo'}

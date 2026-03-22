@@ -10,7 +10,7 @@ export default function BonusCard({ balance }) {
 
   return (
     <GlassCard
-      className="text-center cursor-pointer active:scale-[0.98] transition-transform"
+      className="text-center cursor-pointer active:scale-[0.98] transition-transform p-4"
       onClick={() => navigate('/Referral')}>
       
       <p className="text-4xl font-light tracking-tight">{formatted}</p>

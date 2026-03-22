@@ -64,7 +64,7 @@ export default function Home() {
 
       <BonusCard balance={user?.bonus_balance} />
 
-      <GlassCard>
+      <GlassCard className="p-4">
         <h3 className="text-sm font-medium tracking-wide mb-3">
           {t('activeOrders', lang)}
         </h3>
@@ -88,7 +88,7 @@ export default function Home() {
         )}
       </GlassCard>
 
-      <GlassCard>
+      <GlassCard className="p-4">
         <h3 className="text-sm font-medium tracking-wide mb-3">
           {t('completedOrders', lang)}
         </h3>

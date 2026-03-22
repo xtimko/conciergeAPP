@@ -9,18 +9,35 @@ function normalizePhoneDigits(s) {
 function matchesQuery(client, qRaw) {
   const q = qRaw.trim().toLowerCase();
   if (!q) return false;
-  const name = `${client.first_name || ''} ${client.last_name || ''}`.trim().toLowerCase();
-  const full = (client.full_name || '').toLowerCase();
+  const first = (client.first_name || '').trim().toLowerCase();
+  const last = (client.last_name || '').trim().toLowerCase();
+  const name = `${first} ${last}`.trim();
+  const full = (client.full_name || '').trim().toLowerCase();
+  const email = (client.email || '').trim().toLowerCase();
   const tg = (client.telegram_username || '').toLowerCase().replace(/^@/, '');
   const tgId = String(client.telegram_id || '');
+  const id = String(client.id || '').toLowerCase();
   const phoneDigits = normalizePhoneDigits(client.phone);
   const qDigits = normalizePhoneDigits(q);
+
+  const fields = [name, first, last, full, email, tg, tgId, id, phoneDigits];
+
+  const tokens = q.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    return tokens.every((t) => fields.some((f) => String(f).includes(t)));
+  }
+
+  const single = tokens[0] || q;
   return (
-    name.includes(q) ||
-    full.includes(q) ||
-    tg.includes(q.replace(/^@/, '')) ||
-    (qDigits.length >= 3 && phoneDigits.includes(qDigits)) ||
-    (tgId && tgId.includes(q.replace(/\D/g, '')))
+    name.includes(single) ||
+    first.includes(single) ||
+    last.includes(single) ||
+    full.includes(single) ||
+    email.includes(single) ||
+    tg.includes(single.replace(/^@/, '')) ||
+    id.includes(single) ||
+    (qDigits.length >= 2 && phoneDigits.includes(qDigits)) ||
+    (tgId && tgId.toLowerCase().includes(single.replace(/\D/g, '')))
   );
 }
 
@@ -37,7 +54,7 @@ export default function ClientEmailAutocomplete({
 
   const filtered = useMemo(() => {
     if (!value || value.trim().length === 0) return [];
-    return clients.filter((c) => matchesQuery(c, value)).slice(0, 12);
+    return clients.filter((c) => matchesQuery(c, value)).slice(0, 24);
   }, [clients, value]);
 
   useEffect(() => {

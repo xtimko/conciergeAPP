@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
 import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
 import { buildClientDeliveryAddress } from '@/lib/clientAddress';
-import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
+import { getClientDisplayHandle, getClientPrimaryName, getClientEmailForOrder } from '@/lib/clientDisplay';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -30,9 +30,10 @@ export default function AdminClients() {
   });
 
   const { data: clientOrders = [], isPending: clientOrdersLoading } = useQuery({
-    queryKey: ['clientOrders', selectedClient?.email],
-    queryFn: () => base44.entities.Order.filter({ client_email: selectedClient.email }),
-    enabled: !!selectedClient?.email && showOrders,
+    queryKey: ['clientOrders', selectedClient?.id],
+    queryFn: () =>
+      base44.entities.Order.filter({ client_email: getClientEmailForOrder(selectedClient) }),
+    enabled: !!selectedClient && showOrders,
   });
 
   const filtered = clients.filter((c) => {
@@ -77,7 +78,7 @@ export default function AdminClients() {
         bonus_balance: Number(editForm.bonus_balance) || 0,
       });
       queryClient.invalidateQueries({ queryKey: ['allClients'] });
-      toast.success('Client updated');
+      toast.success('Клиент обновлён');
       hapticSuccess();
       setSelectedClient(null);
     } catch (e) {
@@ -294,11 +295,11 @@ export default function AdminClients() {
       <Dialog open={!!selectedClient && !showOrders} onOpenChange={() => setSelectedClient(null)}>
         <DialogContent className="max-w-md border-border/60 bg-background">
           <DialogHeader>
-            <DialogTitle className="text-sm font-medium tracking-wide">Edit Client</DialogTitle>
+            <DialogTitle className="text-sm font-medium tracking-wide">Редактирование клиента</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div>
-              <Label className="text-xs">First Name</Label>
+              <Label className="text-xs">Имя</Label>
               <Input
                 value={editForm.first_name}
                 onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
@@ -306,7 +307,7 @@ export default function AdminClients() {
               />
             </div>
             <div>
-              <Label className="text-xs">Last Name</Label>
+              <Label className="text-xs">Фамилия</Label>
               <Input
                 value={editForm.last_name}
                 onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
@@ -314,7 +315,7 @@ export default function AdminClients() {
               />
             </div>
             <div>
-              <Label className="text-xs">Phone</Label>
+              <Label className="text-xs">Телефон</Label>
               <Input
                 value={editForm.phone}
                 onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
@@ -322,7 +323,7 @@ export default function AdminClients() {
               />
             </div>
             <div>
-              <Label className="text-xs">City</Label>
+              <Label className="text-xs">Город</Label>
               <Input
                 value={editForm.city}
                 onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
@@ -330,7 +331,7 @@ export default function AdminClients() {
               />
             </div>
             <div>
-              <Label className="text-xs">Bonus Balance</Label>
+              <Label className="text-xs">Баланс баллов</Label>
               <Input
                 type="number"
                 value={editForm.bonus_balance}
@@ -339,7 +340,7 @@ export default function AdminClients() {
               />
             </div>
             <div>
-              <Label className="text-xs">Referral Code</Label>
+              <Label className="text-xs">Реф. код</Label>
               <Input
                 value={editForm.referral_code}
                 onChange={(e) => setEditForm({ ...editForm, referral_code: e.target.value })}
@@ -349,10 +350,10 @@ export default function AdminClients() {
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setSelectedClient(null)} className="glass border-border/30">
-              Cancel
+              Отмена
             </Button>
             <Button onClick={handleSave} className="bg-foreground text-background hover:bg-foreground/90">
-              Save
+              Сохранить
             </Button>
           </div>
         </DialogContent>

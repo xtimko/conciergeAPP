@@ -44,7 +44,7 @@ export default function OrderRow({ order, onClick }) {
 
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[13px] font-medium leading-tight line-clamp-2">{title}</p>
+            <p className="text-sm font-medium leading-tight line-clamp-2">{title}</p>
             <Badge
               variant="outline"
               className={`shrink-0 text-[9px] px-1.5 py-0 h-5 font-normal border ${statusTone[order.status] || ''}`}

@@ -3,10 +3,10 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ClipboardList, Users, ArrowLeft, Wallet } from 'lucide-react';
 
 const tabs = [
-  { path: '/AdminDashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/AdminOrders', icon: ClipboardList, label: 'Orders' },
+  { path: '/AdminDashboard', icon: LayoutDashboard, label: 'Дашборд' },
+  { path: '/AdminOrders', icon: ClipboardList, label: 'Заказы' },
+  { path: '/AdminClients', icon: Users, label: 'Клиенты' },
   { path: '/AdminFinance', icon: Wallet, label: 'Финансы' },
-  { path: '/AdminClients', icon: Users, label: 'Clients' },
 ];
 
 export default function AdminLayout() {

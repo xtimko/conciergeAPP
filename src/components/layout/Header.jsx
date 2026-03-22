@@ -20,7 +20,7 @@ export default function Header({ isAdmin }) {
             <button
               type="button"
               onClick={() => navigate('/AdminDashboard')}
-              className="h-9 min-w-[4.25rem] px-3 rounded-xl text-[11px] font-semibold tracking-wide uppercase bg-foreground/[0.08] hover:bg-foreground/[0.12] border border-border/40 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] text-foreground transition-colors active:scale-[0.98]"
+              className="h-9 min-w-[4.25rem] px-3 rounded-xl text-[11px] font-medium tracking-wide uppercase bg-muted/25 hover:bg-muted/40 border border-border/20 text-muted-foreground hover:text-foreground/90 backdrop-blur-sm transition-colors active:scale-[0.98]"
               aria-label="Админ-панель"
             >
               Админ

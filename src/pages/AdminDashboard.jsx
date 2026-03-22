@@ -5,6 +5,7 @@ import GlassCard from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, Users, Package, TrendingUp, Wallet } from 'lucide-react';
 import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
+import { getStatusLabel } from '@/lib/i18n';
 
 export default function AdminDashboard() {
   const { data: orders = [], isPending: ordersLoading } = useQuery({
@@ -63,7 +64,7 @@ export default function AdminDashboard() {
       </div>
 
       <GlassCard>
-        <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Recent Orders</h3>
+        <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Последние заказы</h3>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -98,7 +99,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-muted-foreground truncate">{subLine}</p>
                 </div>
                 <span className="text-xs text-muted-foreground text-right shrink-0 whitespace-nowrap">
-                  {order.status}
+                  {getStatusLabel(order.status, 'ru')}
                   {profitDel != null ? (
                     <span className="text-emerald-500/90 font-medium tabular-nums ml-1.5">
                       +{profitDel.toLocaleString('ru-RU')}
