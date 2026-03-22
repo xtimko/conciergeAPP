@@ -58,10 +58,11 @@ export function filterClientsForAdminList(clients, query) {
 }
 
 /**
- * Подсказки при оформлении заказа: пустой ввод — пустой список.
+ * Подсказки при оформлении заказа: пустой ввод — все клиенты (как при открытии списка),
+ * после ввода — фильтрация как в разделе «Клиенты».
  */
 export function filterClientsForOrderAutocomplete(clients, query) {
   const q = String(query || '').trim();
-  if (!q) return [];
+  if (!q) return clients;
   return clients.filter((c) => clientMatchesSearch(c, q));
 }

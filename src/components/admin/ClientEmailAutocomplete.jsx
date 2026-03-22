@@ -14,8 +14,11 @@ export default function ClientEmailAutocomplete({
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
+  /** Пустой запрос — показываем всех (с разумным потолком для DOM); с вводом — только совпадения */
   const filtered = useMemo(() => {
-    return filterClientsForOrderAutocomplete(clients || [], value).slice(0, 24);
+    const list = filterClientsForOrderAutocomplete(clients || [], value);
+    const max = String(value || '').trim() ? 80 : 400;
+    return list.slice(0, max);
   }, [clients, value]);
 
   useEffect(() => {
@@ -53,7 +56,7 @@ export default function ClientEmailAutocomplete({
         autoComplete="off"
       />
       {showList && (
-        <div className="absolute z-[10060] left-0 right-0 mt-1 glass rounded-xl border border-border/30 overflow-hidden max-h-64 overflow-y-auto shadow-lg">
+        <div className="absolute z-[10060] left-0 right-0 mt-1 glass rounded-xl border border-border/30 overflow-hidden max-h-[min(50vh,20rem)] overflow-y-auto shadow-lg">
           {filtered.map((c) => (
             <button
               key={c.id}
