@@ -66,3 +66,53 @@ export async function sendTelegramMessage(botToken, chatId, text) {
     }
   }
 }
+
+/**
+ * Фото в чат (URL должен быть доступен серверам Telegram — https/http).
+ * Не подходит: data:image/... (отправь только текст или храни файл по публичному URL).
+ */
+export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption) {
+  if (!botToken || !chatId || !photoUrl) return false;
+  const id = String(chatId).trim();
+  if (!id) return false;
+  const raw = String(photoUrl).trim();
+  if (raw.startsWith("data:") || !/^https?:\/\//i.test(raw)) {
+    return false;
+  }
+  const cap = String(caption || "").slice(0, 1024);
+  const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+  const body = JSON.stringify({
+    chat_id: id,
+    photo: raw,
+    caption: cap || undefined,
+    disable_notification: false
+  });
+  const dispatcher = getTelegramProxyDispatcher();
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 60_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn(
+        "[telegramBotApi] sendPhoto failed:",
+        res.status,
+        data?.error_code,
+        data?.description || JSON.stringify(data)
+      );
+      return false;
+    }
+    console.log("[telegramBotApi] фото отправлено (chat_id:", id + ")");
+    return true;
+  } catch (e) {
+    console.warn("[telegramBotApi] sendPhoto error:", e?.message || e);
+    return false;
+  }
+}

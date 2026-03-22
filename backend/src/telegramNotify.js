@@ -108,5 +108,7 @@ export function notifyOrderInTelegramChat(botToken, db, order, kind) {
   }
 
   const type = kind === "created" ? "order_created" : "order_status_changed";
-  notifyClientTelegram(botToken, user, { type, order });
+  notifyClientTelegram(botToken, user, { type, order }).catch((e) =>
+    console.warn("[telegramNotify] notifyClientTelegram:", e?.message || e)
+  );
 }

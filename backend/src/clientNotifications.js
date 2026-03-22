@@ -8,9 +8,10 @@
  *
  * Новый тип: добавь в NOTIFICATION_REGISTRY и вызови notifyClientTelegram(...).
  */
-import { sendTelegramMessage } from "./telegramBotApi.js";
+import { sendTelegramMessage, sendTelegramPhoto } from "./telegramBotApi.js";
 import {
-  formatOrderCreatedMessageRu,
+  formatOrderCreatedRichRu,
+  formatOrderCreatedPhotoCaptionRu,
   formatOrderStatusMessageRu
 } from "./notificationMessages.js";
 
@@ -48,22 +49,32 @@ export function mergeNotifyPreferences(currentUser, patch) {
   };
 }
 
+async function sendOrderCreatedTelegram(botToken, chatId, { order }) {
+  const text = formatOrderCreatedRichRu(order);
+  const raw = String(order?.image_url || "").trim();
+  if (raw && /^https?:\/\//i.test(raw)) {
+    const cap = formatOrderCreatedPhotoCaptionRu(order);
+    const ok = await sendTelegramPhoto(botToken, chatId, raw, cap);
+    if (!ok) {
+      console.warn("[clientNotifications] sendPhoto не удался — отправляем только текст");
+    }
+  }
+  await sendTelegramMessage(botToken, chatId, text);
+}
+
 /**
- * Реестр уведомлений: type → канал + сборка текста.
- * channel: какой флаг в notify_preferences проверять.
+ * Реестр уведомлений: type → канал + сборка текста или кастомная отправка.
+ * `send` — async (botToken, chatId, { order, user }) для сложных кейсов (фото + текст).
  */
 export const NOTIFICATION_REGISTRY = {
   order_created: {
     channel: "orders",
-    buildText: ({ order }) => formatOrderCreatedMessageRu(order)
+    send: sendOrderCreatedTelegram
   },
   order_status_changed: {
     channel: "orders",
     buildText: ({ order }) => formatOrderStatusMessageRu(order)
   }
-  // Примеры на будущее:
-  // promo_broadcast: { channel: "marketing", buildText: ({ text }) => text },
-  // system_alert: { channel: "system", buildText: ({ text }) => text },
 };
 
 /**
@@ -71,7 +82,7 @@ export const NOTIFICATION_REGISTRY = {
  * @param {object} user — документ пользователя из db.users
  * @param {{ type: string, order?: object }} payload — type из NOTIFICATION_REGISTRY; order для заказных типов
  */
-export function notifyClientTelegram(botToken, user, payload) {
+export async function notifyClientTelegram(botToken, user, payload) {
   if (!botToken) {
     console.warn("[clientNotifications] пропуск: TELEGRAM_BOT_TOKEN не задан");
     return;
@@ -102,6 +113,15 @@ export function notifyClientTelegram(botToken, user, payload) {
     return;
   }
 
+  if (typeof meta.send === "function") {
+    try {
+      await meta.send(botToken, idStr, { order, user });
+    } catch (e) {
+      console.warn("[clientNotifications] send error:", e?.message || e);
+    }
+    return;
+  }
+
   let text;
   try {
     text = meta.buildText({ order, user });
@@ -114,7 +134,9 @@ export function notifyClientTelegram(botToken, user, payload) {
     return;
   }
 
-  sendTelegramMessage(botToken, idStr, text).catch((e) => {
+  try {
+    await sendTelegramMessage(botToken, idStr, text);
+  } catch (e) {
     console.warn("[clientNotifications] ошибка отправки:", e?.message || e);
-  });
+  }
 }

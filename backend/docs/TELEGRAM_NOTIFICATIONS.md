@@ -15,9 +15,14 @@
 | `marketing`| `false`      | Акции, рассылки (реестр + вызовы добавишь позже) |
 | `system`   | `true`       | Важные системные сообщения |
 
+## Создание заказа (`order_created`)
+
+- Сначала **sendPhoto** (если `image_url` — публичный `http(s)://`), подпись — кратко (номер, название, цена, статус).
+- Затем **sendMessage** с полным текстом: товар, бренд, размер, категория, цена, срок, статус, баллы клиента после доставки, бонус пригласившему (если есть), комментарий, напоминание про фото в приложении при `data:` URL.
+
 ## Как добавить новый тип
 
-1. В `clientNotifications.js` в `NOTIFICATION_REGISTRY` добавить, например:
+1. В `NOTIFICATION_REGISTRY` — либо `buildText`, либо async-функция `send` (как у `order_created`).
 
 ```js
 promo_10: {
@@ -26,17 +31,6 @@ promo_10: {
 },
 ```
 
-2. Вызвать:
+2. Вызов: `await notifyClientTelegram(TELEGRAM_BOT_TOKEN, user, { type: "promo_10", ... })`.
 
-```js
-import { notifyClientTelegram } from "./clientNotifications.js";
-
-notifyClientTelegram(TELEGRAM_BOT_TOKEN, user, {
-  type: "promo_10",
-  order: undefined,
-});
-```
-
-Для маркетинга пользователь должен иметь `notify_preferences.marketing === true`.
-
-3. При необходимости добавить ключи в `mergeNotifyPreferences` / настройки на фронте.
+3. Для маркетинга пользователь должен иметь `notify_preferences.marketing === true`.
