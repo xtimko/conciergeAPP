@@ -1,5 +1,5 @@
 import axios from "axios";
-import ProxyAgent from "proxy-agent";
+import { ProxyAgent } from "proxy-agent";
 
 /** URL прокси только для Bot API (http/https/socks5). См. TELEGRAM_PROXY в .env.example */
 let _telegramProxyAgent = null;
