@@ -30,6 +30,9 @@ if (!TELEGRAM_BOT_TOKEN) {
 } else {
   console.log("[concierge] TELEGRAM_BOT_TOKEN загружен — уведомления клиентам в Telegram включены.");
 }
+if (String(process.env.TELEGRAM_PROXY || process.env.TELEGRAM_HTTPS_PROXY || "").trim()) {
+  console.log("[concierge] TELEGRAM_PROXY задан — sendMessage к Telegram через прокси (undici).");
+}
 
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 /* data URL фото в заказах — без лимита мелкие запросы падают на больших снимках */

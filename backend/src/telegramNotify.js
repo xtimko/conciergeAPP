@@ -1,7 +1,29 @@
+import { fetch as undiciFetch, ProxyAgent } from "undici";
+
+/** HTTP(S) прокси (CONNECT) для Bot API. SOCKS — не через undici; см. TELEGRAM_PROXY в .env.example */
+let _telegramProxyDispatcher = null;
+let _telegramProxyForUrl = "";
+
+function getTelegramProxyDispatcher() {
+  const proxyUrl = String(process.env.TELEGRAM_PROXY || process.env.TELEGRAM_HTTPS_PROXY || "").trim();
+  if (!proxyUrl) {
+    _telegramProxyDispatcher = null;
+    _telegramProxyForUrl = "";
+    return null;
+  }
+  if (_telegramProxyDispatcher && _telegramProxyForUrl === proxyUrl) {
+    return _telegramProxyDispatcher;
+  }
+  _telegramProxyForUrl = proxyUrl;
+  _telegramProxyDispatcher = new ProxyAgent(proxyUrl);
+  console.log("[telegramNotify] sendMessage через TELEGRAM_PROXY (undici ProxyAgent → api.telegram.org)");
+  return _telegramProxyDispatcher;
+}
+
 /**
  * Отправка сообщения пользователю в личный чат с ботом (Bot API sendMessage).
  * Требуется TELEGRAM_BOT_TOKEN в .env; пользователь не должен блокировать бота.
- * Нужен прямой исходящий HTTPS до api.telegram.org с сервера (без прокси).
+ * Если с VPS нет прямого доступа к api.telegram.org — задай TELEGRAM_PROXY (http://user:pass@host:port).
  */
 export async function sendTelegramMessage(botToken, chatId, text) {
   if (!botToken || !chatId || !text) return;
@@ -13,14 +35,16 @@ export async function sendTelegramMessage(botToken, chatId, text) {
     text: text.slice(0, 4000),
     disable_web_page_preview: true
   });
+  const dispatcher = getTelegramProxyDispatcher();
   try {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 45_000);
-    const res = await fetch(url, {
+    const res = await undiciFetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
-      signal: ac.signal
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
     });
     clearTimeout(timer);
     const data = await res.json().catch(() => ({}));
@@ -35,7 +59,13 @@ export async function sendTelegramMessage(botToken, chatId, text) {
     }
     console.log("[telegramNotify] сообщение отправлено в Telegram (chat_id:", id + ")");
   } catch (e) {
-    console.warn("[telegramNotify] sendMessage error:", e?.message || e);
+    const msg = e?.message || String(e);
+    console.warn("[telegramNotify] sendMessage error:", msg);
+    if (!dispatcher && /aborted|fetch failed|timeout|ETIMEDOUT|ECONNRESET/i.test(msg)) {
+      console.warn(
+        "[telegramNotify] подсказка: с этого сервера, скорее всего, нет прямого доступа к Telegram. Добавь в backend/.env TELEGRAM_PROXY=http://user:pass@host:port (как в рабочем curl -x) и перезапусти API."
+      );
+    }
   }
 }
 
