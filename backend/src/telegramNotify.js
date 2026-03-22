@@ -1,52 +1,29 @@
-import axios from "axios";
-import { ProxyAgent } from "proxy-agent";
-
-/** URL прокси только для Bot API (http/https/socks5). См. TELEGRAM_PROXY в .env.example */
-let _telegramProxyAgent = null;
-let _telegramProxyAgentForUrl = "";
-
-function getTelegramProxyAgent() {
-  const proxyUrl = String(process.env.TELEGRAM_PROXY || process.env.TELEGRAM_HTTPS_PROXY || "").trim();
-  if (!proxyUrl) {
-    _telegramProxyAgent = null;
-    _telegramProxyAgentForUrl = "";
-    return null;
-  }
-  if (_telegramProxyAgent && _telegramProxyAgentForUrl === proxyUrl) {
-    return _telegramProxyAgent;
-  }
-  _telegramProxyAgentForUrl = proxyUrl;
-  _telegramProxyAgent = new ProxyAgent(proxyUrl);
-  console.log(
-    "[telegramNotify] запросы к api.telegram.org идут через прокси (TELEGRAM_PROXY / TELEGRAM_HTTPS_PROXY)"
-  );
-  return _telegramProxyAgent;
-}
-
 /**
  * Отправка сообщения пользователю в личный чат с ботом (Bot API sendMessage).
  * Требуется TELEGRAM_BOT_TOKEN в .env; пользователь не должен блокировать бота.
- * Если с сервера нет прямого доступа к Telegram — задай TELEGRAM_PROXY (см. .env.example).
+ * Нужен прямой исходящий HTTPS до api.telegram.org с сервера (без прокси).
  */
 export async function sendTelegramMessage(botToken, chatId, text) {
   if (!botToken || !chatId || !text) return;
   const id = String(chatId).trim();
   if (!id) return;
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  const agent = getTelegramProxyAgent();
-  const payload = {
+  const body = JSON.stringify({
     chat_id: id,
     text: text.slice(0, 4000),
     disable_web_page_preview: true
-  };
+  });
   try {
-    const res = await axios.post(url, payload, {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 45_000);
+    const res = await fetch(url, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      timeout: 45_000,
-      validateStatus: () => true,
-      ...(agent ? { httpAgent: agent, httpsAgent: agent, proxy: false } : {})
+      body,
+      signal: ac.signal
     });
-    const data = res.data;
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
     if (!data?.ok) {
       console.warn(
         "[telegramNotify] sendMessage failed:",
