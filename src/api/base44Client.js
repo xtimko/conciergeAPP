@@ -99,7 +99,10 @@ export const base44 = {
       try {
         return await request("/auth/me");
       } catch (error) {
-        if (error.status === 401) {
+        // Если токен есть, но пользователь не найден в БД (404) — это значит, что
+        // аккаунт ещё не был создан/перестворён. В этом случае пробуем войти
+        // через Telegram еще раз.
+        if (error.status === 401 || error.status === 404) {
           return loginDev();
         }
         throw error;

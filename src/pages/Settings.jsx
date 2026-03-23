@@ -105,7 +105,6 @@ export default function Settings() {
           <Bell className="w-4 h-4 text-muted-foreground" />
           <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('notifySection', lang)}</span>
         </div>
-        <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">{t('notifyHint', lang)}</p>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-light">{t('notifyOrders', lang)}</span>

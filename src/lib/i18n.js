@@ -22,7 +22,7 @@ const translations = {
       referralCode: "Ваш реферальный код",
       referralLink: "Реферальная ссылка",
       referralLinkHint:
-        "Отправьте другу. Когда он откроет приложение по ссылке, вы станете пригласившим — баллы за его доставленные заказы.",
+        "Поделитесь ею с другом. Копите баллы за каждую его покупку! Списание баллов доступно при оформлении заказа.",
       copyReferralLink: "Скопировать ссылку",
       linkCopied: "Ссылка скопирована!",
       copyCode: "Скопировать код",
@@ -106,7 +106,7 @@ const translations = {
       referralCode: "Your referral code",
       referralLink: "Referral link",
       referralLinkHint:
-        "Send to a friend. When they open the app via the link, you become their referrer — points for their delivered orders.",
+        "Share it with your friend. Earn points for every purchase! You can spend points when placing an order.",
       copyReferralLink: "Copy link",
       linkCopied: "Link copied!",
       copyCode: "Copy code",

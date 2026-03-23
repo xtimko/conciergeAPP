@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
@@ -7,10 +7,6 @@ import BonusCard from '@/components/home/BonusCard';
 import OrderRow from '@/components/home/OrderRow';
 import GlassCard from '@/components/ui/GlassCard';
 import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
-
-function generateCode() {
-  return 'SNKRX-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-}
 
 export default function Home() {
   const { lang } = useTheme();
@@ -22,21 +18,9 @@ export default function Home() {
     queryFn: () => base44.auth.me(),
   });
 
-  // После онбординга: реферальный код + приветственные баллы
-  useEffect(() => {
-    if (user?.profile_completed && !user.referral_code) {
-      base44.auth.updateMe({
-        referral_code: generateCode(),
-        bonus_balance: (user.bonus_balance || 0) + 500,
-      }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['me'] });
-      });
-    }
-  }, [user, queryClient]);
-
   const { data: orders = [] } = useQuery({
     queryKey: ['myOrders', user?.email],
-    queryFn: () => base44.entities.Order.filter({ client_email: user.email }, '-created_date'),
+    queryFn: () => base44.entities.Order.filter({ client_email: user.email }),
     enabled: !!user?.email,
   });
 
@@ -44,7 +28,9 @@ export default function Home() {
   const activeOrders = orders.filter((o) => !['delivered', 'cancelled'].includes(o.status));
   const completedOrders = orders
     .filter((o) => ['delivered', 'cancelled'].includes(o.status))
-    .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
+    .sort(
+      (a, b) => new Date(b.created_date || 0).getTime() - new Date(a.created_date || 0).getTime()
+    );
 
   return (
     <div className="px-4 pt-6 space-y-5">
@@ -114,6 +100,7 @@ export default function Home() {
         order={selectedOrder}
         open={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
+        readOnly={false}
       />
     </div>
   );

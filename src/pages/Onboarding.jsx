@@ -11,11 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { phoneChangeFromRawInput } from '@/lib/phoneRu';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Onboarding() {
   const { lang } = useTheme();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [phoneDisplay, setPhoneDisplay] = useState('+7(');
   const [form, setForm] = useState({
@@ -30,7 +32,6 @@ export default function Onboarding() {
     address_entrance: '',
     intercom: '',
     courier_comment: '',
-    referral_code: ''
   });
 
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -61,8 +62,7 @@ export default function Onboarding() {
         address_floor: form.address_floor.trim(),
         address_entrance: form.address_entrance.trim(),
         intercom: form.intercom.trim(),
-        courier_comment: form.courier_comment.trim(),
-        referral_code: form.referral_code.trim()
+        courier_comment: form.courier_comment.trim()
       });
       await queryClient.invalidateQueries({ queryKey: ['me'] });
       toast.success(lang === 'ru' ? 'Добро пожаловать!' : 'Welcome!');
@@ -131,30 +131,30 @@ export default function Onboarding() {
             <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
               {lang === 'ru' ? 'Адрес доставки' : 'Delivery address'}
             </p>
-            <div>
-              <Label className="text-xs text-muted-foreground">{t('city', lang)} *</Label>
-              <Input
-                required
-                value={form.city}
-                onChange={(e) => update('city', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">
-                {lang === 'ru' ? 'Улица (можно позже в профиле)' : 'Street (optional — add in profile)'}
-              </Label>
-              <Input
-                value={form.address_street}
-                onChange={(e) => update('address_street', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">{t('city', lang)} *</Label>
+                <Input
+                  required
+                  value={form.city}
+                  onChange={(e) => update('city', e.target.value)}
+                  className="mt-1 bg-transparent border-border/30"
+                />
+              </div>
               <div>
                 <Label className="text-xs text-muted-foreground">
-                  {lang === 'ru' ? 'Дом' : 'Building'}
+                  {lang === 'ru' ? 'Улица' : 'Street'}
                 </Label>
+                <Input
+                  value={form.address_street}
+                  onChange={(e) => update('address_street', e.target.value)}
+                  className="mt-1 bg-transparent border-border/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Дом' : 'Building'}</Label>
                 <Input
                   value={form.address_house}
                   onChange={(e) => update('address_house', e.target.value)}
@@ -169,8 +169,6 @@ export default function Onboarding() {
                   className="mt-1 bg-transparent border-border/30"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Этаж' : 'Floor'}</Label>
                 <Input
@@ -187,14 +185,14 @@ export default function Onboarding() {
                   className="mt-1 bg-transparent border-border/30"
                 />
               </div>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Домофон' : 'Intercom'}</Label>
-              <Input
-                value={form.intercom}
-                onChange={(e) => update('intercom', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-              />
+              <div className="col-span-2 sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">{lang === 'ru' ? 'Домофон' : 'Intercom'}</Label>
+                <Input
+                  value={form.intercom}
+                  onChange={(e) => update('intercom', e.target.value)}
+                  className="mt-1 bg-transparent border-border/30"
+                />
+              </div>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">
@@ -210,20 +208,24 @@ export default function Onboarding() {
           </GlassCard>
 
           <GlassCard className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-              {t('onboardingFriendCodeOptional', lang)}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {lang === 'ru' ? (
+                <>
+                  {t('referredBy', lang)}{' '}
+                  <span className="font-medium">({authUser?.referred_by_name || 'друг'})</span>
+                </>
+              ) : (
+                <>
+                  You were invited by{' '}
+                  <span className="font-medium">({authUser?.referred_by_name || 'a friend'})</span>
+                </>
+              )}
             </p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               {lang === 'ru'
-                ? 'Если друг прислал реферальную ссылку — откройте приложение по ней, код вводить не нужно. Иначе вставьте код REF-…'
-                : "If a friend sent a referral link, open the app via that link — no code needed. Otherwise paste their REF-… code."}
+                ? 'Приглашайте своих друзей и получайте баллы за их заказы.'
+                : 'Invite your friends and earn points for their orders.'}
             </p>
-            <Input
-              value={form.referral_code}
-              onChange={(e) => update('referral_code', e.target.value)}
-              className="bg-transparent border-border/30 font-mono tracking-wider"
-              placeholder="REF-XXXXXXXX"
-            />
           </GlassCard>
 
           <Button

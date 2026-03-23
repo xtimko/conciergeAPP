@@ -26,7 +26,9 @@
         "orders": true,
         "marketing": false,
         "system": true
-      }
+      },
+      "referred_by_name": "",
+      "referral_link_token": "CONDWML4JY2GV"
     },
     {
       "id": "vzA332BsIrqrw_fSdhUug",
@@ -54,7 +56,9 @@
         "orders": true,
         "marketing": false,
         "system": true
-      }
+      },
+      "referred_by_name": "",
+      "referral_link_token": "CONTEEUX3VYVV"
     },
     {
       "id": "Oxsbz6zH6sOxKB6b1jZwV",
@@ -82,8 +86,11 @@
         "orders": true,
         "marketing": false,
         "system": true
-      }
+      },
+      "referred_by_name": "",
+      "referral_link_token": "CONG54D9YVJSY"
     }
   ],
-  "orders": []
+  "orders": [],
+  "pending_referrals": {}
 }

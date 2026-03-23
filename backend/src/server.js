@@ -31,13 +31,50 @@ const ALLOW_DEV_TELEGRAM_LOGIN = process.env.ALLOW_DEV_TELEGRAM_LOGIN === "true"
 
 const REF_START_PREFIX = "ref_";
 
-function parseReferrerIdFromStartParam(startParam) {
+function parseRefTokenFromStartParam(startParam) {
   if (!startParam || typeof startParam !== "string") return null;
   const s = startParam.trim();
   if (!s.startsWith(REF_START_PREFIX)) return null;
-  const id = s.slice(REF_START_PREFIX.length);
-  if (!id || id.length > 64) return null;
-  return id;
+  const token = s.slice(REF_START_PREFIX.length);
+  if (!token || token.length > 64) return null;
+  return token;
+}
+
+function normalizePublicId(input) {
+  return String(input || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+}
+
+function resolveReferrerIdByToken(db, token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+
+  // New opaque token format, e.g. CONXXXXXXXXXX
+  const byLinkToken = db.users.find(
+    (u) => String(u.referral_link_token || "").trim().toUpperCase() === t.toUpperCase()
+  );
+  if (byLinkToken) return byLinkToken.id;
+
+  // Backward compatibility: old referral code format (REF-XXXXXXXX)
+  const byReferralCode = db.users.find(
+    (u) =>
+      String(u.referral_code || "")
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .toUpperCase() === normalizePublicId(t)
+  );
+  if (byReferralCode) return byReferralCode.id;
+
+  // Backward compatibility: old links used raw internal user.id
+  const byId = db.users.find((u) => String(u.id) === t);
+  if (byId) return byId.id;
+
+  // New compact format: public_id in normalized form (e.g. CLI000001)
+  const want = normalizePublicId(t);
+  if (!want) return null;
+  const byPublic = db.users.find((u) => normalizePublicId(u.public_id) === want);
+  return byPublic?.id || null;
 }
 
 function applyReferralToNewUser(db, newUser, referrerId) {
@@ -46,6 +83,11 @@ function applyReferralToNewUser(db, newUser, referrerId) {
   if (!referrer || referrer.id === newUser.id) return;
   const email = referrer.email || `tg_${referrer.telegram_id}@concierge-app.local`;
   newUser.referred_by = email;
+  const name =
+    referrer.full_name ||
+    [referrer.first_name, referrer.last_name].filter(Boolean).join(" ") ||
+    (referrer.telegram_username ? `@${String(referrer.telegram_username).replace(/^@/, "")}` : "");
+  newUser.referred_by_name = name;
 }
 
 function takePendingReferrer(db, telegramUserId) {
@@ -99,7 +141,12 @@ function authRequired(req, res, next) {
 }
 
 function adminRequired(req, res, next) {
-  if (req.auth?.role !== "admin") return res.status(403).json({ message: "Admin only" });
+  // Важно: проверяем роль по актуальным данным в data.json, а не по полю role внутри JWT.
+  // Иначе возможна рассинхронизация: роль пользователя могла поменяться в БД, но в токене осталась старая.
+  const db = readDb();
+  const userId = req.auth?.userId;
+  const user = db.users?.find((u) => u.id === userId);
+  if (!user || user.role !== "admin") return res.status(403).json({ message: "Admin only" });
   next();
 }
 
@@ -132,54 +179,74 @@ app.get("/api/public/config", (_req, res) => {
 });
 
 app.post("/api/auth/telegram", (req, res) => {
-  const initData = req.body?.initData || "";
-  const initDataUnsafeUser = req.body?.initDataUnsafe?.user;
-  let telegramUser = null;
-  let startParam = null;
+  try {
+    const initData = req.body?.initData || "";
+    const initDataUnsafeUser = req.body?.initDataUnsafe?.user;
+    let telegramUser = null;
+    let startParam = null;
 
-  if (initData && TELEGRAM_BOT_TOKEN) {
-    const verified = verifyTelegramInitData(initData, TELEGRAM_BOT_TOKEN);
-    if (!verified.ok) {
-      return res.status(401).json({ message: verified.error });
+    if (initData && TELEGRAM_BOT_TOKEN) {
+      const verified = verifyTelegramInitData(initData, TELEGRAM_BOT_TOKEN);
+      if (!verified.ok) {
+        return res.status(401).json({ message: verified.error });
+      }
+      telegramUser = verified.user;
+      startParam = verified.startParam;
+    } else if (ALLOW_DEV_TELEGRAM_LOGIN && initDataUnsafeUser?.id) {
+      telegramUser = initDataUnsafeUser;
+      startParam = req.body?.startParam || null;
+    } else {
+      return res.status(401).json({
+        message: "Telegram auth required. Open app inside Telegram Mini App."
+      });
     }
-    telegramUser = verified.user;
-    startParam = verified.startParam;
-  } else if (ALLOW_DEV_TELEGRAM_LOGIN && initDataUnsafeUser?.id) {
-    telegramUser = initDataUnsafeUser;
-    startParam = req.body?.startParam || null;
-  } else {
-    return res.status(401).json({
-      message: "Telegram auth required. Open app inside Telegram Mini App."
-    });
-  }
 
-  const db = readDb();
-  if (!db.pending_referrals) db.pending_referrals = {};
+    const db = readDb();
+    if (!db.pending_referrals) db.pending_referrals = {};
 
-  let user = db.users.find((u) => u.telegram_id === String(telegramUser.id));
-  if (!user) {
-    user = createUserFromTelegram(telegramUser, db);
-    user.telegram_username = telegramUser.username || "";
-    if (db.users.length === 0) {
-      user.role = "admin";
-      user.profile_completed = true;
-    }
-    let refId = parseReferrerIdFromStartParam(startParam);
-    if (!refId) refId = takePendingReferrer(db, telegramUser.id);
-    applyReferralToNewUser(db, user, refId);
-    db.users.push(user);
-    writeDb(db);
-  } else if (telegramUser.username && user.telegram_username !== telegramUser.username) {
-    user.telegram_username = telegramUser.username;
-    const idx = db.users.findIndex((u) => u.id === user.id);
-    if (idx >= 0) {
-      db.users[idx] = { ...db.users[idx], telegram_username: telegramUser.username };
+    if (!Array.isArray(db.users)) db.users = [];
+
+    let user = db.users.find((u) => u.telegram_id === String(telegramUser.id));
+    if (!user) {
+      const before = db.users.length;
+      user = createUserFromTelegram(telegramUser, db);
+      user.telegram_username = telegramUser.username || "";
+      if (db.users.length === 0) {
+        user.role = "admin";
+        user.profile_completed = true;
+      }
+    let refId = resolveReferrerIdByToken(db, parseRefTokenFromStartParam(startParam));
+      if (!refId) refId = takePendingReferrer(db, telegramUser.id);
+      applyReferralToNewUser(db, user, refId);
+      db.users.push(user);
       writeDb(db);
+      console.log(
+        "[auth/telegram] created user telegram_id=",
+        telegramUser.id,
+        "db.users:",
+        before,
+        "->",
+        db.users.length
+      );
+    } else if (telegramUser.username && user.telegram_username !== telegramUser.username) {
+      user.telegram_username = telegramUser.username;
+      const idx = db.users.findIndex((u) => u.id === user.id);
+      if (idx >= 0) {
+        db.users[idx] = { ...db.users[idx], telegram_username: telegramUser.username };
+        writeDb(db);
+      }
+      console.log(
+        "[auth/telegram] updated telegram_username user telegram_id=",
+        telegramUser.id
+      );
     }
-  }
 
-  const token = signToken(user);
-  res.json({ token, user });
+    const token = signToken(user);
+    res.json({ token, user });
+  } catch (e) {
+    console.error("[auth/telegram] handler error:", e?.stack || e?.message || e);
+    res.status(500).json({ message: "Telegram auth failed (server error)" });
+  }
 });
 
 app.get("/api/auth/me", authRequired, (req, res) => {
@@ -269,6 +336,7 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
   const email = `tg_${u.telegram_id}@concierge-app.local`;
 
   let referred_by = u.referred_by || "";
+  let referred_by_name = u.referred_by_name || "";
   if (referral_code_input) {
     const referrer = db.users.find(
       (x) => x.referral_code && x.referral_code.replace(/\s+/g, "").toUpperCase() === referral_code_input
@@ -280,6 +348,12 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
       return res.status(400).json({ message: "Нельзя использовать свой код" });
     }
     referred_by = referrer.email || `tg_${referrer.telegram_id}@concierge-app.local`;
+    referred_by_name =
+      referrer.full_name ||
+      [referrer.first_name, referrer.last_name].filter(Boolean).join(" ") ||
+      (referrer.telegram_username
+        ? `@${String(referrer.telegram_username).replace(/^@/, "")}`
+        : "");
   }
 
   const delivery_address = buildDeliveryAddress({
@@ -310,6 +384,7 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
     courier_comment,
     delivery_address,
     referred_by: referred_by || u.referred_by,
+    referred_by_name: referred_by_name || u.referred_by_name,
     profile_completed: true,
     updated_date: nowIso()
   };
@@ -367,8 +442,10 @@ app.patch("/api/users/:id", authRequired, adminRequired, (req, res) => {
 
 app.get("/api/orders", authRequired, (req, res) => {
   const db = readDb();
-  if (req.auth.role === "admin") return res.json(db.orders);
   const me = db.users.find((u) => u.id === req.auth.userId);
+  if (!me) return res.status(404).json({ message: "User not found" });
+  // Важно: роль берем из БД, чтобы не зависеть от устаревшего JWT.
+  if (me.role === "admin") return res.json(db.orders);
   const mine = db.orders.filter((o) => o.client_email === me?.email);
   res.json(mine);
 });
@@ -531,12 +608,12 @@ app.post("/api/telegram/webhook", (req, res) => {
     if (!db.pending_referrals) db.pending_referrals = {};
 
     let referrerId = null;
-    if (payload.startsWith(REF_START_PREFIX)) {
-      const rid = payload.slice(REF_START_PREFIX.length);
-      const refUser = db.users.find((u) => u.id === rid);
-      if (refUser) {
-        referrerId = refUser.id;
-        storePendingReferrer(db, fromId, referrerId);
+    const token = parseRefTokenFromStartParam(payload);
+    if (token) {
+      const rid = resolveReferrerIdByToken(db, token);
+      if (rid) {
+        referrerId = rid;
+        storePendingReferrer(db, fromId, rid);
       }
     } else {
       storePendingReferrer(db, fromId, null);
@@ -568,6 +645,23 @@ app.post("/api/telegram/webhook", (req, res) => {
 function migrateDbOnce() {
   const db = readDb();
   let changed = false;
+  const existingTokens = new Set(
+    (db.users || []).map((u) => String(u.referral_link_token || "").trim().toUpperCase()).filter(Boolean)
+  );
+  const genToken = () => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const maxAttempts = 10_000;
+    for (let i = 0; i < maxAttempts; i += 1) {
+      let suffix = "";
+      for (let j = 0; j < 10; j += 1) suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+      const token = `CON${suffix}`;
+      if (!existingTokens.has(token)) {
+        existingTokens.add(token);
+        return token;
+      }
+    }
+    return `CON${Date.now().toString(36).toUpperCase()}`;
+  };
   if (!db.pending_referrals || typeof db.pending_referrals !== "object") {
     db.pending_referrals = {};
     changed = true;
@@ -591,6 +685,14 @@ function migrateDbOnce() {
     }
     if (u.notify_preferences === undefined) {
       u.notify_preferences = { orders: true, marketing: false, system: true };
+      changed = true;
+    }
+    if (u.referred_by_name === undefined) {
+      u.referred_by_name = "";
+      changed = true;
+    }
+    if (!u.referral_link_token) {
+      u.referral_link_token = genToken();
       changed = true;
     }
   }

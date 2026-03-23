@@ -6,14 +6,25 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Copy, Check, Users, Gift, Link2 } from 'lucide-react';
+import { Check, Users, Gift, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const REF_PREFIX = 'ref_';
 
+function compactRefToken(user) {
+  const linkToken = String(user?.referral_link_token || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
+  if (linkToken) return linkToken;
+  const fallback = String(user?.referral_code || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
+  if (fallback) return fallback;
+  return String(user?.id || '').trim();
+}
+
 export default function Referral() {
   const { lang } = useTheme();
-  const [copiedCode, setCopiedCode] = React.useState(false);
   const [copiedLink, setCopiedLink] = React.useState(false);
 
   const { data: user } = useQuery({
@@ -61,20 +72,17 @@ export default function Referral() {
       );
   }, [myOrders]);
 
-  const code = user?.referral_code || '';
-
   const referralLink = useMemo(() => {
     const bot = pub?.telegramBotUsername;
-    if (!bot || !user?.id) return '';
-    return `https://t.me/${bot}?startapp=${REF_PREFIX}${user.id}`;
-  }, [pub?.telegramBotUsername, user?.id]);
+    const token = compactRefToken(user);
+    if (!bot || !token) return '';
+    return `https://t.me/${bot}?startapp=${REF_PREFIX}${token}`;
+  }, [pub?.telegramBotUsername, user]);
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(code);
-    toast.success(t('codeCopied', lang));
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
+  const referralLinkDisplay = useMemo(() => {
+    if (!referralLink) return '';
+    return referralLink;
+  }, [referralLink]);
 
   const copyLink = () => {
     if (!referralLink) return;
@@ -104,7 +112,7 @@ export default function Referral() {
         {referralLink ? (
           <>
             <p className="text-[11px] font-mono break-all text-left bg-muted/20 rounded-lg px-2 py-2 mb-3">
-              {referralLink}
+              {referralLinkDisplay}
             </p>
             <Button
               variant="outline"
@@ -122,24 +130,6 @@ export default function Referral() {
               ? 'Задайте TELEGRAM_BOT_USERNAME на сервере в .env — тогда здесь появится ссылка.'
               : 'Set TELEGRAM_BOT_USERNAME in server .env to show the referral link.'}
           </p>
-        )}
-      </GlassCard>
-
-      <GlassCard className="text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] mb-3">
-          {t('referralCode', lang)}
-        </p>
-        <p className="text-2xl font-light tracking-[0.3em] mb-4">{code || '—'}</p>
-        {code && (
-          <Button
-            onClick={copyCode}
-            variant="outline"
-            size="sm"
-            className="glass border-border/30 text-xs"
-          >
-            {copiedCode ? <Check className="w-3 h-3 mr-2 text-green-400" /> : <Copy className="w-3 h-3 mr-2" />}
-            {copiedCode ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : t('copyCode', lang)}
-          </Button>
         )}
       </GlassCard>
 

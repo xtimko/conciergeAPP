@@ -1,73 +1,49 @@
-import React, { useRef, useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ImagePlus, Loader2, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { ClipboardPaste, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { fileToCompressedDataUrl, dataUrlToFile } from '@/lib/resizeImage';
 
 export default function ImageUploadField({ value, onChange }) {
-  const fileRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
+  const [pasting, setPasting] = useState(false);
 
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
+  const handlePasteUrl = async () => {
+    if (!navigator?.clipboard?.readText) {
+      toast.error('Буфер обмена недоступен в этом браузере');
+      return;
+    }
+    setPasting(true);
     try {
-      let uploadFile = file;
-      if (file.type.startsWith('image/')) {
-        try {
-          const dataUrl = await fileToCompressedDataUrl(file, 1920, 0.82);
-          const base = (file.name || 'photo').replace(/\.[^.]+$/, '') || 'photo';
-          uploadFile = dataUrlToFile(dataUrl, base);
-        } catch {
-          /* тяжёлое/экзотическое — пробуем как есть */
-        }
+      const text = (await navigator.clipboard.readText())?.trim();
+      if (!text) {
+        toast.error('В буфере пусто');
+        return;
       }
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: uploadFile });
-      onChange(file_url);
+      onChange(text);
     } catch (err) {
-      console.error(err);
-      toast.error(
-        err?.message?.includes('fetch') || err?.message?.includes('Failed')
-          ? 'Не удалось загрузить фото (слишком большой файл?)'
-          : 'Ошибка загрузки фото',
-      );
+      toast.error('Не удалось вставить из буфера');
     } finally {
-      setUploading(false);
-      e.target.value = '';
+      setPasting(false);
     }
   };
 
   return (
     <div className="col-span-2">
-      <Label className="text-xs">Product Image</Label>
+      <label className="text-xs">URL изображения</label>
       <div className="mt-1 flex gap-2 items-start">
-        <Input
+        <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Paste image URL..."
-          className="bg-transparent border-border/30 flex-1"
+          placeholder="https://..."
+          className="flex h-9 w-full rounded-md border border-border/30 bg-transparent px-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="icon"
-          className="glass border-border/30 shrink-0"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
+          className="inline-flex h-8 shrink-0 items-center rounded-md border border-border/30 px-3 text-xs glass disabled:pointer-events-none disabled:opacity-50"
+          onClick={handlePasteUrl}
+          disabled={pasting}
         >
-          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFile}
-        />
+          <ClipboardPaste className="w-4 h-4 mr-1.5" />
+          Вставить
+        </button>
       </div>
       {value && (
         <div className="relative mt-2 rounded-xl overflow-hidden w-full h-36 bg-muted/30">

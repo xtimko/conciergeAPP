@@ -7,12 +7,32 @@ import { nanoid } from "nanoid";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_PATH = path.join(__dirname, "..", "data.json");
+console.log("[concierge][db] DB_PATH:", DB_PATH);
 
 const initialData = {
   users: [],
   orders: [],
   pending_referrals: {}
 };
+
+function randomTokenSuffix(len = 10) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < len; i += 1) {
+    out += alphabet[randomInt(0, alphabet.length)];
+  }
+  return out;
+}
+
+function nextReferralLinkToken(db) {
+  const used = new Set((db.users || []).map((u) => String(u.referral_link_token || "").toUpperCase()));
+  const maxAttempts = 10_000;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    const token = `CON${randomTokenSuffix(10)}`;
+    if (!used.has(token)) return token;
+  }
+  throw new Error("nextReferralLinkToken: failed to allocate token");
+}
 
 function ensureDb() {
   if (!fs.existsSync(DB_PATH)) {
@@ -22,7 +42,23 @@ function ensureDb() {
 
 export function readDb() {
   ensureDb();
-  return JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  try {
+    return JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+  } catch (e) {
+    // Если data.json битый — не даём серверу падать бесконечно.
+    // Делаем бэкап и восстанавливаем минимальную структуру.
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const backupPath = `${DB_PATH}.corrupt-${ts}`;
+    try {
+      fs.copyFileSync(DB_PATH, backupPath);
+    } catch {
+      /* ignore */
+    }
+    console.warn("[concierge][db] data.json parse failed, restoring:", e?.message || e);
+    const fresh = JSON.parse(JSON.stringify(initialData));
+    fs.writeFileSync(DB_PATH, JSON.stringify(fresh, null, 2), "utf8");
+    return fresh;
+  }
 }
 
 export function writeDb(data) {
@@ -93,7 +129,10 @@ export function createUserFromTelegram(telegramUser, db) {
     first_name: firstName,
     last_name: lastName,
     full_name: [firstName, lastName].filter(Boolean).join(" "),
-    email: "",
+    // Делаем email заполненным сразу, чтобы:
+    // - реферальная логика не зависела от полного onboarding
+    // - в MySQL не ловить UNIQUE-конфликты (если будет миграция обратно)
+    email: `tg_${telegramUser.id}@concierge-app.local`,
     phone: "",
     city: "",
     delivery_address: "",
@@ -105,7 +144,9 @@ export function createUserFromTelegram(telegramUser, db) {
     intercom: "",
     courier_comment: "",
     referral_code: `REF-${nanoid(8).toUpperCase()}`,
+    referral_link_token: nextReferralLinkToken(db),
     referred_by: "",
+    referred_by_name: "",
     telegram_username: "",
     notify_preferences: {
       orders: true,
