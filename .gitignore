@@ -2,6 +2,9 @@
 .env
 .env.*
 
+# Backend: локальная JSON-база (на сервере свои данные — не в репозитории)
+backend/data.json
+
 # Logs
 /logs
 *.log
