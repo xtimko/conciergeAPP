@@ -24,6 +24,9 @@ async function request(path, options = {}) {
   const token = getToken();
   const url = `${getApiBase()}${path}`;
   let res;
+  const ac = new AbortController();
+  const timeoutMs = 15_000;
+  const timeout = setTimeout(() => ac.abort(), timeoutMs);
   try {
     res = await fetch(url, {
       headers: {
@@ -31,17 +34,23 @@ async function request(path, options = {}) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers || {})
       },
-      ...options
+      ...options,
+      signal: ac.signal
     });
   } catch (e) {
+    clearTimeout(timeout);
     const err = new Error(
       `Нет связи с API (${getApiBase()}). Проверь nginx / VITE_API_BASE_URL / что бэкенд запущен.`
     );
     err.status = 0;
     err.network = true;
     err.cause = e;
+    if (/aborted/i.test(String(e?.message || e))) {
+      err.message = `Таймаут запроса к API (${getApiBase()}) after ${timeoutMs}ms. Проверь доступность /api.`;
+    }
     throw err;
   }
+  clearTimeout(timeout);
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

@@ -17,7 +17,6 @@ export const AuthProvider = ({ children }) => {
 
   const checkAppState = async () => {
     try {
-      setIsLoadingPublicSettings(false);
       setAuthError(null);
       setAppPublicSettings({ id: "local", public_settings: {} });
       await checkUserAuth();
@@ -27,8 +26,10 @@ export const AuthProvider = ({ children }) => {
         type: 'unknown',
         message: error.message || 'An unexpected error occurred'
       });
-      setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
+    } finally {
+      // Не переключаем публичный "готов" флаг раньше, чем закончилось получение авторизации.
+      setIsLoadingPublicSettings(false);
     }
   };
 
