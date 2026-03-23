@@ -3,7 +3,11 @@
 function normalize11(digits) {
   let d = String(digits || '').replace(/\D/g, '');
   if (d.startsWith('8') && d.length >= 11) d = '7' + d.slice(1);
-  if (d.length === 10) d = '7' + d;
+  // 10 цифр: либо «9XXXXXXXXX» без кода страны, либо уже «7XXXXXXXXX» (частичный ввод).
+  // Нельзя всегда делать '7'+d — иначе 7999123456 превращается в 77799123456 и ломается маска.
+  if (d.length === 10 && !d.startsWith('7')) {
+    d = d.startsWith('8') ? '7' + d.slice(1) : '7' + d;
+  }
   if (!d.startsWith('7')) d = '7' + d.replace(/\D/g, '').replace(/^7+/, '').slice(0, 10);
   return d.slice(0, 11);
 }

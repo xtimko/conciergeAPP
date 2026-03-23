@@ -44,8 +44,14 @@ export const AuthProvider = ({ children }) => {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
+
+      if (error.status === 0 || error.network) {
+        setAuthError({
+          type: 'network',
+          message: error.message || 'Нет связи с сервером'
+        });
+        return;
+      }
       if (error.status === 401 || error.status === 403) {
         setAuthError({
           type: 'auth_required',

@@ -9,6 +9,11 @@ function getApiBase() {
   return "http://localhost:8787/api";
 }
 
+/** Для отладки в консоли: откуда идут запросы */
+export function getApiBaseDebug() {
+  return getApiBase();
+}
+
 const TOKEN_KEY = "concierge_jwt";
 
 const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
@@ -17,14 +22,26 @@ const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 async function request(path, options = {}) {
   const token = getToken();
-  const res = await fetch(`${getApiBase()}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {})
-    },
-    ...options
-  });
+  const url = `${getApiBase()}${path}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {})
+      },
+      ...options
+    });
+  } catch (e) {
+    const err = new Error(
+      `Нет связи с API (${getApiBase()}). Проверь nginx / VITE_API_BASE_URL / что бэкенд запущен.`
+    );
+    err.status = 0;
+    err.network = true;
+    err.cause = e;
+    throw err;
+  }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

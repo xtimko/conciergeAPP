@@ -120,6 +120,22 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     }
+    if (authError.type === 'network') {
+      return (
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-background p-6 text-center">
+          <h1 className="mb-2 text-lg font-normal tracking-widest uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>Concierge</h1>
+          <p className="max-w-md text-sm text-muted-foreground whitespace-pre-wrap">
+            {authError.message}
+          </p>
+          <p className="mt-4 max-w-md text-xs text-muted-foreground/80">
+            На сервере: nginx должен проксировать <code className="rounded bg-muted px-1">/api</code> на Node (порт 8787), в{' '}
+            <code className="rounded bg-muted px-1">backend/.env</code> —{' '}
+            <code className="rounded bg-muted px-1">FRONTEND_ORIGIN=https://ваш-домен</code>. Для сборки фронта можно задать{' '}
+            <code className="rounded bg-muted px-1">VITE_API_BASE_URL=https://ваш-домен/api</code>.
+          </p>
+        </div>
+      );
+    }
     if (authError.type === 'auth_required') {
       // Не вызывать navigateToLogin() при рендере — иначе пустой экран в браузере.
       return (
