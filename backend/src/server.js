@@ -8,12 +8,12 @@ import {
   readDb,
   writeDb,
   nextOrderPublicId,
-  ensureUserPublicIds,
+  ensureUserPublicIds
 } from "./db.js";
 import { verifyTelegramInitData } from "./telegramAuth.js";
 import {
   notifyOrderInTelegramChat,
-  deriveClientTelegramIdFromBody,
+  deriveClientTelegramIdFromBody
 } from "./telegramNotify.js";
 import { mergeNotifyPreferences } from "./clientNotifications.js";
 
@@ -77,7 +77,7 @@ function normalizeEstimatedDays(body) {
   return { estimated_days: 0, estimated_days_range: "" };
 }
 
-app.get("/api/health", (_, res) => res.json({ ok: true }));
+app.get("/api/health", (_, res) => res.json({ ok: true, db: "json" }));
 
 app.post("/api/auth/telegram", (req, res) => {
   const initData = req.body?.initData || "";
@@ -490,5 +490,5 @@ function migrateDbOnce() {
 migrateDbOnce();
 
 app.listen(PORT, () => {
-  console.log(`[concierge] API running on http://localhost:${PORT} (логи: stdout → смотри journalctl -u concierge-api)`);
+  console.log(`[concierge] API running on http://localhost:${PORT} (storage: data.json)`);
 });

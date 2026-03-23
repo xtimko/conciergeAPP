@@ -97,7 +97,7 @@ export function notifyOrderInTelegramChat(botToken, db, order, kind) {
   const user = findUserForOrder(db, order);
   if (!user) {
     console.warn(
-      "[telegramNotify] не нашли клиента в data.json. Заказ:",
+      "[telegramNotify] не нашли клиента (data.json users). Заказ:",
       order?.id,
       "client_email:",
       order?.client_email,

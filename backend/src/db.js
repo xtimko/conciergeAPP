@@ -44,7 +44,7 @@ export function nextClientPublicId(db) {
 
 /**
  * Уникальный номер заказа CON-XXXXXX: случайные 6 цифр (0…999999), без повторов
- * среди существующих id заказов. Не предсказуем по порядку создания.
+ * среди существующих id заказов.
  */
 export function nextOrderPublicId(db) {
   const used = new Set();
