@@ -18,14 +18,6 @@ export const ORDER_STATUS_TITLE_RU = {
   cancelled: "Отменён"
 };
 
-const CATEGORY_RU = {
-  footwear: "Обувь",
-  clothing: "Одежда",
-  accessories: "Аксессуары",
-  bags: "Сумки",
-  other: "Другое"
-};
-
 function formatMoney(order) {
   const n = Number(order.price ?? 0);
   const cur = String(order.currency || "RUB").toUpperCase();
@@ -38,9 +30,16 @@ function formatMoney(order) {
 
 function formatEstimatedLine(order) {
   const r = String(order.estimated_days_range || "").trim();
-  if (r) return `Срок: ${r.replace(/-/g, "–")} дней`;
+  if (r) {
+    const m = r.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
+    if (m) {
+      const lo = Math.min(Number(m[1]), Number(m[2]));
+      const hi = Math.max(Number(m[1]), Number(m[2]));
+      return `Срок ожидания: ~${lo}–${hi}дн.`;
+    }
+  }
   const d = Number(order.estimated_days || 0);
-  if (d > 0) return `Срок: до ${d} дн.`;
+  if (d > 0) return `Срок ожидания: ~${d}дн.`;
   return "";
 }
 
@@ -62,18 +61,12 @@ export function formatOrderCreatedNotificationRu(order, opts = {}) {
   parts.push("<b>Заказ оформлен</b>");
   parts.push("");
   parts.push(`${item}${size}`);
-  parts.push(`<b>${id}</b>`);
+  parts.push(`<code>${id}</code>`);
 
   const brand = order.brand ? escapeHtml(String(order.brand).trim()) : "";
-  const catRaw = CATEGORY_RU[order.item_category] || order.item_category;
-  const cat = catRaw ? escapeHtml(String(catRaw)) : "";
-
-  const meta = [];
-  if (brand) meta.push(brand);
-  if (cat) meta.push(cat);
-  if (meta.length) {
+  if (brand) {
     parts.push("");
-    parts.push(meta.join(" · "));
+    parts.push(brand);
   }
 
   parts.push("");
@@ -127,5 +120,5 @@ export function formatOrderStatusMessageRu(order) {
   const oid = escapeHtml(order.id || "—");
   const st = escapeHtml(ORDER_STATUS_TITLE_RU[order.status] || order.status);
 
-  return `<b>Обновление по заказу:</b>\n\n${name}${size}\n<b>${oid}</b>\n\nСтатус -> <b>${st}</b>`;
+  return `<b>Обновление по заказу:</b>\n\n${name}${size}\n<code>${oid}</code>\n\nСтатус -> <b>${st}</b>`;
 }

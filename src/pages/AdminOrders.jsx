@@ -488,14 +488,14 @@ export default function AdminOrders() {
         </div>
       )}
 
-      <div className="-mx-1 px-1 flex flex-nowrap items-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="shrink-0 w-[min(100%,9.5rem)] sm:w-[11.5rem]">
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-1.5">
+        <div className="min-w-[130px] flex-1 sm:max-w-[200px]">
           <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Статус</Label>
           <Select
             value={statusFilter || 'all'}
             onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
           >
-            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30 w-full">
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
               <SelectValue placeholder="Все" />
             </SelectTrigger>
             <SelectContent>
@@ -510,7 +510,7 @@ export default function AdminOrders() {
             </SelectContent>
           </Select>
         </div>
-        <div className="shrink-0 w-[min(100%,11rem)] sm:w-[13.5rem]">
+        <div className="min-w-[160px] flex-1 sm:max-w-[220px]">
           <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Сортировка</Label>
           <Select
             value={sortMode}
@@ -522,7 +522,7 @@ export default function AdminOrders() {
               setSortMode(v);
             }}
           >
-            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30 w-full">
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -542,7 +542,7 @@ export default function AdminOrders() {
           </Select>
         </div>
         {sortMode === 'date_range' && (
-        <div className="flex flex-nowrap gap-1.5 items-end shrink-0">
+        <div className="flex flex-wrap gap-1.5 items-end">
           <div>
             <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none block">С</Label>
             <Input
@@ -574,37 +574,38 @@ export default function AdminOrders() {
           </Button>
         </div>
         )}
-        <div className="flex flex-nowrap gap-1.5 items-center h-8 shrink-0">
-          <Button
-            type="button"
-            size="sm"
-            variant={orderFilter === 'all' ? 'default' : 'outline'}
-            className={`h-8 shrink-0 text-xs px-2.5 ${orderFilter === 'all' ? 'bg-foreground text-background' : 'glass border-border/30'}`}
-            onClick={() => setOrderFilter('all')}
-          >
-            Все ({orders.length})
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={orderFilter === 'active' ? 'default' : 'outline'}
-            className={`h-8 shrink-0 text-xs px-2.5 ${orderFilter === 'active' ? 'bg-foreground text-background' : 'glass border-border/30'}`}
-            onClick={() => setOrderFilter('active')}
-          >
-            <ListChecks className="w-3.5 h-3.5 mr-1" />
-            Активные ({orders.filter(isActiveOrder).length})
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={orderFilter === 'completed' ? 'default' : 'outline'}
-            className={`h-8 shrink-0 text-xs px-2.5 ${orderFilter === 'completed' ? 'bg-foreground text-background' : 'glass border-border/30'}`}
-            onClick={() => setOrderFilter('completed')}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-            Завершённые ({orders.filter((o) => !isActiveOrder(o)).length})
-          </Button>
-        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={orderFilter === 'all' ? 'default' : 'outline'}
+          className={orderFilter === 'all' ? 'bg-foreground text-background' : 'glass border-border/30'}
+          onClick={() => setOrderFilter('all')}
+        >
+          Все ({orders.length})
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={orderFilter === 'active' ? 'default' : 'outline'}
+          className={orderFilter === 'active' ? 'bg-foreground text-background' : 'glass border-border/30'}
+          onClick={() => setOrderFilter('active')}
+        >
+          <ListChecks className="w-3.5 h-3.5 mr-1" />
+          Активные ({orders.filter(isActiveOrder).length})
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={orderFilter === 'completed' ? 'default' : 'outline'}
+          className={orderFilter === 'completed' ? 'bg-foreground text-background' : 'glass border-border/30'}
+          onClick={() => setOrderFilter('completed')}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+          Завершённые ({orders.filter((o) => !isActiveOrder(o)).length})
+        </Button>
       </div>
 
       <div className="space-y-2">

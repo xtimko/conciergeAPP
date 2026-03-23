@@ -28,12 +28,15 @@ import AdminFinance from '@/pages/AdminFinance';
 
 function ProfileGate({ children }) {
   const location = useLocation();
-  const { data: user, isLoading } = useQuery({
+  const { user: authUser } = useAuth();
+  /** Не дублировать «вечную» загрузку: /me уже отработал в AuthProvider */
+  const { data: user = authUser, isPending } = useQuery({
     queryKey: ['me'],
     queryFn: () => base44.auth.me(),
+    initialData: authUser ?? undefined,
   });
 
-  if (isLoading) {
+  if (!user && isPending) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="w-6 h-6 border-2 border-muted-foreground border-t-foreground rounded-full animate-spin" />
@@ -85,9 +88,11 @@ const AppRoutes = () => {
 };
 
 const ThemeInitializer = ({ children }) => {
-  const { data: user } = useQuery({
+  const { user: authUser } = useAuth();
+  const { data: user = authUser } = useQuery({
     queryKey: ['me'],
     queryFn: () => base44.auth.me(),
+    initialData: authUser ?? undefined,
   });
 
   return (

@@ -1,4 +1,4 @@
-import { parseEstimatedDaysFromOrder } from '@/lib/estimatedDelivery';
+import { parseEstimatedDaysFromOrder, formatExpectedDaysShort } from '@/lib/estimatedDelivery';
 
 /**
  * Краткая подсказка по сроку для списка заказов (главная).
@@ -22,18 +22,21 @@ export function getOrderEtaHint(order, lang = 'ru') {
     return lang === 'ru' ? 'Срок ожидания истёк' : 'Past expected date';
   }
 
+  const shortWait = formatExpectedDaysShort(order, lang);
   if (isRange) {
     return lang === 'ru'
-      ? `~${min}–${max} дн. · ${fmt(etaStart)}–${fmt(etaEnd)}`
-      : `~${min}–${max}d · ${fmt(etaStart)}–${fmt(etaEnd)}`;
+      ? `Срок ожидания ${shortWait} · ${fmt(etaStart)}–${fmt(etaEnd)}`
+      : `Waiting ${shortWait} · ${fmt(etaStart)}–${fmt(etaEnd)}`;
   }
 
   const daysLeft = daysToEnd;
   const shortDate = fmt(etaEnd);
   if (daysLeft === 1) {
-    return lang === 'ru' ? `~1 день · до ${shortDate}` : `~1 day · by ${shortDate}`;
+    return lang === 'ru'
+      ? `Срок ожидания ${shortWait} · ${shortDate}`
+      : `Waiting ${shortWait} · ${shortDate}`;
   }
   return lang === 'ru'
-    ? `~${daysLeft} дн. · до ${shortDate}`
-    : `~${daysLeft}d · by ${shortDate}`;
+    ? `Срок ожидания ${shortWait} · ${shortDate}`
+    : `Waiting ${shortWait} · ${shortDate}`;
 }

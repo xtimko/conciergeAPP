@@ -19,6 +19,18 @@ export function parseEstimatedDaysFromOrder(order) {
   return { min: 0, max: 0, isRange: false };
 }
 
+/** Короткая строка для UI: ~14дн. / ~7–14дн. */
+export function formatExpectedDaysShort(order, lang = 'ru') {
+  const { min, max, isRange } = parseEstimatedDaysFromOrder(order);
+  if (!max || max <= 0) return null;
+  if (lang === 'ru') {
+    if (isRange && min !== max) return `~${min}–${max}дн.`;
+    return `~${max}дн.`;
+  }
+  if (isRange && min !== max) return `~${min}–${max}d`;
+  return `~${max}d`;
+}
+
 /** Нормализация ввода админа → API */
 export function normalizeEstimatedDaysInput(raw) {
   const s = raw == null ? '' : String(raw).trim();

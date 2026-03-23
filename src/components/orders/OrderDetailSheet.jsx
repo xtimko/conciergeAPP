@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, Calendar, Tag, Banknote, Clock, Copy, Check } from 'lucide-react';
 import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics';
 import { toast } from 'sonner';
-import { parseEstimatedDaysFromOrder } from '@/lib/estimatedDelivery';
+import { parseEstimatedDaysFromOrder, formatExpectedDaysShort } from '@/lib/estimatedDelivery';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 
 function formatDate(iso, locale) {
@@ -121,11 +121,11 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
       });
     const etaStart = new Date(created.getTime() + min * 86400000);
     const etaEnd = new Date(created.getTime() + max * 86400000);
-    const etaLabel = isRange
-      ? lang === 'ru'
-        ? `примерно ${fmtLong(etaStart)} — ${fmtLong(etaEnd)}`
-        : `approx. ${fmtLong(etaStart)} – ${fmtLong(etaEnd)}`
+    const shortWait = formatExpectedDaysShort(order, lang);
+    const datePart = isRange
+      ? `${fmtLong(etaStart)} — ${fmtLong(etaEnd)}`
       : fmtLong(etaEnd);
+    const etaLabel = shortWait && datePart ? `${shortWait} · ${datePart}` : datePart;
 
     const now = new Date();
     const daysToStart = Math.ceil((etaStart.getTime() - now.getTime()) / 86400000);
@@ -137,20 +137,19 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
           lang === 'ru'
             ? isRange
               ? 'Срок окна истёк'
-              : 'Срок истёк'
+              : 'Срок ожидания истёк'
             : isRange
               ? 'Expected window passed'
               : 'Past expected date';
       } else if (isRange) {
         const a = Math.max(0, daysToStart);
         const b = Math.max(0, daysToEnd);
-        daysLeftLabel =
-          lang === 'ru' ? `примерно ${a}–${b} дн.` : `approx. ${a}–${b} days`;
+        daysLeftLabel = lang === 'ru' ? `~${a}–${b}дн.` : `~${a}–${b}d`;
       } else if (daysToEnd === 1) {
-        daysLeftLabel = lang === 'ru' ? 'Остался 1 день' : '1 day left';
+        daysLeftLabel = lang === 'ru' ? '~1дн. до ожидаемой даты' : '~1d left';
       } else {
         daysLeftLabel =
-          lang === 'ru' ? `Осталось дней: ${daysToEnd}` : `${daysToEnd} day(s) left`;
+          lang === 'ru' ? `~${daysToEnd}дн. до ожидаемой даты` : `~${daysToEnd}d left`;
       }
     }
     return { etaLabel, daysLeftLabel };
@@ -201,26 +200,12 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
       },
       {
         icon: Clock,
-        label:
-          lang === 'ru'
-            ? est.isRange
-              ? 'Примерный срок получения'
-              : 'Примерная дата получения'
-            : est.isRange
-              ? 'Approx. delivery window'
-              : 'Approx. delivery',
+        label: lang === 'ru' ? 'Срок ожидания' : 'Waiting period',
         value: etaLabel,
       },
       {
         icon: Calendar,
-        label:
-          lang === 'ru'
-            ? est.isRange
-              ? 'Ориентир по дням'
-              : 'До получения'
-            : est.isRange
-              ? 'Days (estimate)'
-              : 'Until delivery',
+        label: lang === 'ru' ? 'Осталось (ориентир)' : 'Remaining (estimate)',
         value: daysLeftLabel,
       },
     ].filter((r) => r.value);
@@ -367,7 +352,9 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="pointer-events-auto h-8 px-5 text-xs font-medium rounded-full bg-background/95 border border-border/50 shadow-md backdrop-blur-sm"
+                className={`h-8 px-5 text-xs font-medium rounded-full bg-background/95 border border-border/50 shadow-md backdrop-blur-sm transition-opacity duration-300 ease-out ${
+                  lightboxVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+                }`}
                 onClick={closeLightbox}
               >
                 {lang === 'ru' ? 'Закрыть' : 'Close'}
