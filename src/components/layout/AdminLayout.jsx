@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ClipboardList, Users, ArrowLeft, Wallet } from 'lucide-react';
+import { AdminChromeContext } from '@/lib/adminChromeContext';
 
 const tabs = [
   { path: '/AdminDashboard', icon: LayoutDashboard, label: 'Дашборд' },
@@ -11,22 +12,27 @@ const tabs = [
 
 export default function AdminLayout() {
   const location = useLocation();
+  const [headerRight, setHeaderRight] = useState(null);
+  const chromeApi = useMemo(() => ({ setHeaderRight }), []);
 
   return (
     <div className="min-h-[100dvh] bg-background font-inter text-foreground">
       <header className="sticky top-0 z-40 glass-chrome miniapp-header-pt">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center h-11 px-4 gap-3">
-            <Link
-              to="/Home"
-              className="p-2 -ml-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Back"
-            >
-              <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-            </Link>
-            <h1 className="text-[11px] font-medium tracking-[0.28em] uppercase text-foreground/90">
-              Concierge ID
-            </h1>
+          <div className="flex items-center justify-between gap-2 h-11 px-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                to="/Home"
+                className="p-2 -ml-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
+              </Link>
+              <h1 className="text-[11px] font-medium tracking-[0.28em] uppercase text-foreground/90 truncate">
+                Concierge ID
+              </h1>
+            </div>
+            <div className="shrink-0 flex items-center">{headerRight}</div>
           </div>
           <div
             className="flex flex-nowrap gap-1.5 px-3 pb-3 pt-0.5 overflow-x-auto overscroll-x-contain snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -53,7 +59,9 @@ export default function AdminLayout() {
         </div>
       </header>
       <main className="max-w-4xl mx-auto p-4 pb-10">
-        <Outlet />
+        <AdminChromeContext.Provider value={chromeApi}>
+          <Outlet />
+        </AdminChromeContext.Provider>
       </main>
     </div>
   );

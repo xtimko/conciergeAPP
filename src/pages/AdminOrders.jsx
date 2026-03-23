@@ -19,6 +19,7 @@ import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
 import { getClientEmailForOrder } from '@/lib/clientDisplay';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
+import { useAdminChrome } from '@/lib/adminChromeContext';
 
 function inDateRange(iso, fromStr, toStr) {
   if (!fromStr && !toStr) return true;
@@ -94,6 +95,8 @@ export default function AdminOrders() {
   /** created_desc | created_asc | updated_desc | date_range (промежуток + поля С/По) */
   const [sortMode, setSortMode] = useState('created_desc');
   const queryClient = useQueryClient();
+  const adminChrome = useAdminChrome();
+  const setHeaderRight = adminChrome?.setHeaderRight;
 
   const { data: orders = [], isPending: ordersLoading } = useQuery({
     queryKey: ['allOrders'],
@@ -224,7 +227,7 @@ export default function AdminOrders() {
     }
   };
 
-  const openNew = () => {
+  const openNew = useCallback(() => {
     setEditingOrder(null);
     setForm(emptyOrder);
     setClientSearch('');
@@ -232,7 +235,22 @@ export default function AdminOrders() {
     setClientAddress('');
     setAddrCopied(false);
     setDialogOpen(true);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!setHeaderRight) return undefined;
+    setHeaderRight(
+      <Button
+        type="button"
+        onClick={openNew}
+        size="sm"
+        className="h-8 px-2.5 text-[11px] bg-foreground text-background hover:bg-foreground/90"
+      >
+        <Plus className="w-3.5 h-3.5 mr-1" /> Новый
+      </Button>,
+    );
+    return () => setHeaderRight(null);
+  }, [setHeaderRight, openNew]);
 
   const openEdit = async (order) => {
     setEditingOrder(order);
@@ -426,9 +444,16 @@ export default function AdminOrders() {
         >
           <ListTodo className="w-4 h-4" />
         </Button>
-        <Button onClick={openNew} size="sm" className="bg-foreground text-background hover:bg-foreground/90 shrink-0 h-10">
-          <Plus className="w-4 h-4 mr-1" /> Новый
-        </Button>
+        {!setHeaderRight ? (
+          <Button
+            type="button"
+            onClick={openNew}
+            size="sm"
+            className="bg-foreground text-background hover:bg-foreground/90 shrink-0 h-10"
+          >
+            <Plus className="w-4 h-4 mr-1" /> Новый
+          </Button>
+        ) : null}
       </div>
 
       {selectionMode && (
@@ -463,14 +488,14 @@ export default function AdminOrders() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-end gap-x-2 gap-y-1.5">
-        <div className="min-w-[130px] flex-1 sm:max-w-[200px]">
+      <div className="-mx-1 px-1 flex flex-nowrap items-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="shrink-0 w-[min(100%,9.5rem)] sm:w-[11.5rem]">
           <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Статус</Label>
           <Select
             value={statusFilter || 'all'}
             onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
           >
-            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30 w-full">
               <SelectValue placeholder="Все" />
             </SelectTrigger>
             <SelectContent>
@@ -485,7 +510,7 @@ export default function AdminOrders() {
             </SelectContent>
           </Select>
         </div>
-        <div className="min-w-[160px] flex-1 sm:max-w-[220px]">
+        <div className="shrink-0 w-[min(100%,11rem)] sm:w-[13.5rem]">
           <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none">Сортировка</Label>
           <Select
             value={sortMode}
@@ -497,7 +522,7 @@ export default function AdminOrders() {
               setSortMode(v);
             }}
           >
-            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30">
+            <SelectTrigger className="mt-0.5 h-8 text-xs py-0 bg-transparent border-border/30 w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -517,7 +542,7 @@ export default function AdminOrders() {
           </Select>
         </div>
         {sortMode === 'date_range' && (
-        <div className="flex flex-wrap gap-1.5 items-end">
+        <div className="flex flex-nowrap gap-1.5 items-end shrink-0">
           <div>
             <Label className="text-[9px] uppercase tracking-wide text-muted-foreground leading-none block">С</Label>
             <Input
@@ -549,38 +574,37 @@ export default function AdminOrders() {
           </Button>
         </div>
         )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={orderFilter === 'all' ? 'default' : 'outline'}
-          className={orderFilter === 'all' ? 'bg-foreground text-background' : 'glass border-border/30'}
-          onClick={() => setOrderFilter('all')}
-        >
-          Все ({orders.length})
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={orderFilter === 'active' ? 'default' : 'outline'}
-          className={orderFilter === 'active' ? 'bg-foreground text-background' : 'glass border-border/30'}
-          onClick={() => setOrderFilter('active')}
-        >
-          <ListChecks className="w-3.5 h-3.5 mr-1" />
-          Активные ({orders.filter(isActiveOrder).length})
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={orderFilter === 'completed' ? 'default' : 'outline'}
-          className={orderFilter === 'completed' ? 'bg-foreground text-background' : 'glass border-border/30'}
-          onClick={() => setOrderFilter('completed')}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-          Завершённые ({orders.filter((o) => !isActiveOrder(o)).length})
-        </Button>
+        <div className="flex flex-nowrap gap-1.5 items-center h-8 shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            variant={orderFilter === 'all' ? 'default' : 'outline'}
+            className={`h-8 shrink-0 text-xs px-2.5 ${orderFilter === 'all' ? 'bg-foreground text-background' : 'glass border-border/30'}`}
+            onClick={() => setOrderFilter('all')}
+          >
+            Все ({orders.length})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={orderFilter === 'active' ? 'default' : 'outline'}
+            className={`h-8 shrink-0 text-xs px-2.5 ${orderFilter === 'active' ? 'bg-foreground text-background' : 'glass border-border/30'}`}
+            onClick={() => setOrderFilter('active')}
+          >
+            <ListChecks className="w-3.5 h-3.5 mr-1" />
+            Активные ({orders.filter(isActiveOrder).length})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={orderFilter === 'completed' ? 'default' : 'outline'}
+            className={`h-8 shrink-0 text-xs px-2.5 ${orderFilter === 'completed' ? 'bg-foreground text-background' : 'glass border-border/30'}`}
+            onClick={() => setOrderFilter('completed')}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+            Завершённые ({orders.filter((o) => !isActiveOrder(o)).length})
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -614,7 +638,7 @@ export default function AdminOrders() {
                   else openQuickStatus(order);
                 }
               }}
-              className={`flex items-stretch justify-between min-h-[3.75rem] py-3 px-3 sm:px-4 cursor-pointer ${
+              className={`flex items-stretch justify-between min-h-[3.75rem] py-3 px-3 sm:px-4 cursor-pointer transition-transform duration-150 motion-reduce:transition-none active:scale-[0.99] motion-reduce:active:scale-100 ${
                 selectionMode && selectedIds.has(order.id) ? 'ring-1 ring-foreground/30' : ''
               }`}
             >

@@ -70,6 +70,11 @@ const translations = {
       pointsFromFriendsTotal: "Всего баллов от друзей",
       noBonusHistory: "Пока нет начислений баллов по доставленным заказам",
       noCompletedOrders: "Нет завершённых заказов",
+      notifySection: "Уведомления в Telegram",
+      notifyOrders: "Заказы (статусы, новые заказы)",
+      notifyMarketing: "Акции и новости",
+      notifySystem: "Важные сообщения сервиса",
+      notifyHint: "Отключённые типы бот присылать не будет.",
     },
     en: {
       welcome: "Welcome",
@@ -142,6 +147,11 @@ const translations = {
       pointsFromFriendsTotal: "Total points from friends",
       noBonusHistory: "No points from delivered orders yet",
       noCompletedOrders: "No completed orders",
+      notifySection: "Telegram notifications",
+      notifyOrders: "Orders (status updates, new orders)",
+      notifyMarketing: "Promos and news",
+      notifySystem: "Important service messages",
+      notifyHint: "The bot won't send disabled types.",
     }
   };
   
