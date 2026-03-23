@@ -69,6 +69,50 @@ export async function sendTelegramMessage(botToken, chatId, text) {
 }
 
 /**
+ * Приветствие после /start: текст + кнопка открытия Mini App.
+ * webAppUrl — публичный HTTPS URL фронта (как в BotFather для Web App).
+ */
+export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, webAppUrl) {
+  if (!botToken || !chatId || !webAppUrl) return;
+  const id = String(chatId).trim();
+  const url = String(webAppUrl).trim().replace(/\/$/, "");
+  if (!id || !/^https:\/\//i.test(url)) {
+    console.warn("[telegramBotApi] welcome WebApp: нужен HTTPS URL фронта (PUBLIC_APP_URL / FRONTEND_ORIGIN)");
+    return;
+  }
+  const body = JSON.stringify({
+    chat_id: id,
+    text: String(textHtml || "").slice(0, 4000),
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "Открыть приложение", web_app: { url: url } }]
+      ]
+    }
+  });
+  const dispatcher = getTelegramProxyDispatcher();
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 45_000);
+    const res = await undiciFetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn("[telegramBotApi] welcome WebApp failed:", data?.description || res.status);
+    }
+  } catch (e) {
+    console.warn("[telegramBotApi] welcome WebApp error:", e?.message || e);
+  }
+}
+
+/**
  * Фото в чат (URL должен быть доступен серверам Telegram — https/http).
  * Не подходит: data:image/... (отправь только текст или храни файл по публичному URL).
  */

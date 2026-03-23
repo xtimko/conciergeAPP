@@ -211,12 +211,12 @@ export default function Onboarding() {
 
           <GlassCard className="space-y-3">
             <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-              {lang === 'ru' ? 'Реферальный код друга' : "Friend's referral code"}
+              {t('onboardingFriendCodeOptional', lang)}
             </p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               {lang === 'ru'
-                ? 'Если вас пригласил друг — вставьте его код. Поле можно оставить пустым.'
-                : "If a friend invited you, paste their code. You can leave this empty."}
+                ? 'Если друг прислал реферальную ссылку — откройте приложение по ней, код вводить не нужно. Иначе вставьте код REF-…'
+                : "If a friend sent a referral link, open the app via that link — no code needed. Otherwise paste their REF-… code."}
             </p>
             <Input
               value={form.referral_code}

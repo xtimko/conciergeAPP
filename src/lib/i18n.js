@@ -20,6 +20,11 @@ const translations = {
       cancel: "Отмена",
       bonusBalance: "Накоплено баллов",
       referralCode: "Ваш реферальный код",
+      referralLink: "Реферальная ссылка",
+      referralLinkHint:
+        "Отправьте другу. Когда он откроет приложение по ссылке, вы станете пригласившим — баллы за его доставленные заказы.",
+      copyReferralLink: "Скопировать ссылку",
+      linkCopied: "Ссылка скопирована!",
       copyCode: "Скопировать код",
       codeCopied: "Код скопирован!",
       referralHistory: "История баллов",
@@ -75,6 +80,8 @@ const translations = {
       notifyMarketing: "Акции и новости",
       notifySystem: "Важные сообщения сервиса",
       notifyHint: "Отключённые типы бот присылать не будет.",
+      onboardingFriendCodeOptional:
+        "Код друга (если открыли приложение без реферальной ссылки)",
     },
     en: {
       welcome: "Welcome",
@@ -97,6 +104,11 @@ const translations = {
       cancel: "Cancel",
       bonusBalance: "Bonus balance",
       referralCode: "Your referral code",
+      referralLink: "Referral link",
+      referralLinkHint:
+        "Send to a friend. When they open the app via the link, you become their referrer — points for their delivered orders.",
+      copyReferralLink: "Copy link",
+      linkCopied: "Link copied!",
       copyCode: "Copy code",
       codeCopied: "Code copied!",
       referralHistory: "Bonus history",
@@ -152,6 +164,8 @@ const translations = {
       notifyMarketing: "Promos and news",
       notifySystem: "Important service messages",
       notifyHint: "The bot won't send disabled types.",
+      onboardingFriendCodeOptional:
+        "Friend's code (only if you opened the app without a referral link)",
     }
   };
   

@@ -79,6 +79,12 @@ async function loginDev() {
 }
 
 export const base44 = {
+  /** Публичный конфиг (имя бота для реферальной ссылки и т.д.) */
+  public: {
+    async config() {
+      return request("/public/config");
+    }
+  },
   auth: {
     async me() {
       try {

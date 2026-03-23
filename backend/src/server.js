@@ -16,13 +16,57 @@ import {
   deriveClientTelegramIdFromBody
 } from "./telegramNotify.js";
 import { mergeNotifyPreferences } from "./clientNotifications.js";
+import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:4173";
+/** Публичный HTTPS URL Mini App (кнопка в боте и BotFather). Можно задать отдельно от CORS. */
+const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || process.env.FRONTEND_ORIGIN || "").replace(/\/$/, "");
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const TELEGRAM_BOT_USERNAME = String(process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+const TELEGRAM_WEBHOOK_SECRET = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
 const ALLOW_DEV_TELEGRAM_LOGIN = process.env.ALLOW_DEV_TELEGRAM_LOGIN === "true";
+
+const REF_START_PREFIX = "ref_";
+
+function parseReferrerIdFromStartParam(startParam) {
+  if (!startParam || typeof startParam !== "string") return null;
+  const s = startParam.trim();
+  if (!s.startsWith(REF_START_PREFIX)) return null;
+  const id = s.slice(REF_START_PREFIX.length);
+  if (!id || id.length > 64) return null;
+  return id;
+}
+
+function applyReferralToNewUser(db, newUser, referrerId) {
+  if (!referrerId) return;
+  const referrer = db.users.find((u) => u.id === referrerId);
+  if (!referrer || referrer.id === newUser.id) return;
+  const email = referrer.email || `tg_${referrer.telegram_id}@concierge-app.local`;
+  newUser.referred_by = email;
+}
+
+function takePendingReferrer(db, telegramUserId) {
+  const tid = String(telegramUserId);
+  if (!db.pending_referrals || typeof db.pending_referrals !== "object") return null;
+  const refId = db.pending_referrals[tid];
+  if (!refId) return null;
+  delete db.pending_referrals[tid];
+  return refId;
+}
+
+function storePendingReferrer(db, telegramUserId, referrerId) {
+  if (!db.pending_referrals || typeof db.pending_referrals !== "object") {
+    db.pending_referrals = {};
+  }
+  if (referrerId) {
+    db.pending_referrals[String(telegramUserId)] = referrerId;
+  } else {
+    delete db.pending_referrals[String(telegramUserId)];
+  }
+}
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.warn(
@@ -79,10 +123,19 @@ function normalizeEstimatedDays(body) {
 
 app.get("/api/health", (_, res) => res.json({ ok: true, db: "json" }));
 
+/** Публичные настройки для фронта (реферальная ссылка t.me/...) */
+app.get("/api/public/config", (_req, res) => {
+  res.json({
+    telegramBotUsername: TELEGRAM_BOT_USERNAME,
+    publicAppUrl: PUBLIC_APP_URL || null
+  });
+});
+
 app.post("/api/auth/telegram", (req, res) => {
   const initData = req.body?.initData || "";
   const initDataUnsafeUser = req.body?.initDataUnsafe?.user;
   let telegramUser = null;
+  let startParam = null;
 
   if (initData && TELEGRAM_BOT_TOKEN) {
     const verified = verifyTelegramInitData(initData, TELEGRAM_BOT_TOKEN);
@@ -90,8 +143,10 @@ app.post("/api/auth/telegram", (req, res) => {
       return res.status(401).json({ message: verified.error });
     }
     telegramUser = verified.user;
+    startParam = verified.startParam;
   } else if (ALLOW_DEV_TELEGRAM_LOGIN && initDataUnsafeUser?.id) {
     telegramUser = initDataUnsafeUser;
+    startParam = req.body?.startParam || null;
   } else {
     return res.status(401).json({
       message: "Telegram auth required. Open app inside Telegram Mini App."
@@ -99,6 +154,8 @@ app.post("/api/auth/telegram", (req, res) => {
   }
 
   const db = readDb();
+  if (!db.pending_referrals) db.pending_referrals = {};
+
   let user = db.users.find((u) => u.telegram_id === String(telegramUser.id));
   if (!user) {
     user = createUserFromTelegram(telegramUser, db);
@@ -107,6 +164,9 @@ app.post("/api/auth/telegram", (req, res) => {
       user.role = "admin";
       user.profile_completed = true;
     }
+    let refId = parseReferrerIdFromStartParam(startParam);
+    if (!refId) refId = takePendingReferrer(db, telegramUser.id);
+    applyReferralToNewUser(db, user, refId);
     db.users.push(user);
     writeDb(db);
   } else if (telegramUser.username && user.telegram_username !== telegramUser.username) {
@@ -442,9 +502,76 @@ app.get("/api/referrals/stats", authRequired, (req, res) => {
   res.json({ referrals });
 });
 
+/**
+ * Webhook Telegram Bot: /start → приветствие + кнопка Mini App; ref_ → pending для первого входа.
+ * Настройка: setWebhook url=https://домен/api/telegram/webhook secret_token=TELEGRAM_WEBHOOK_SECRET
+ */
+app.post("/api/telegram/webhook", (req, res) => {
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const token = req.headers["x-telegram-bot-api-secret-token"];
+    if (token !== TELEGRAM_WEBHOOK_SECRET) {
+      return res.status(403).json({ ok: false });
+    }
+  }
+
+  try {
+    const msg = req.body?.message;
+    const text = (msg?.text || "").trim();
+    if (!msg?.chat?.id || !text.startsWith("/start")) {
+      return res.json({ ok: true });
+    }
+
+    const fromId = msg.from?.id;
+    if (!fromId) return res.json({ ok: true });
+
+    const m = /^\/start(?:\s+(.+))?$/i.exec(text);
+    const payload = (m && m[1]) ? String(m[1]).trim() : "";
+
+    const db = readDb();
+    if (!db.pending_referrals) db.pending_referrals = {};
+
+    let referrerId = null;
+    if (payload.startsWith(REF_START_PREFIX)) {
+      const rid = payload.slice(REF_START_PREFIX.length);
+      const refUser = db.users.find((u) => u.id === rid);
+      if (refUser) {
+        referrerId = refUser.id;
+        storePendingReferrer(db, fromId, referrerId);
+      }
+    } else {
+      storePendingReferrer(db, fromId, null);
+    }
+    writeDb(db);
+
+    if (TELEGRAM_BOT_TOKEN) {
+      const welcomeHtml =
+        "<b>Concierge</b>\n\n" +
+        "Зайдите в приложение, чтобы пройти регистрацию и оформлять заказы.\n\n" +
+        "Поделитесь <b>реферальной ссылкой</b> из раздела «Рефералы» в Mini App — " +
+        "за каждый <b>доставленный</b> заказ приглашённого друга вам начисляются баллы.\n\n" +
+        "Нажмите кнопку ниже 👇";
+      const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
+      if (appUrl) {
+        sendTelegramWelcomeWithWebApp(TELEGRAM_BOT_TOKEN, msg.chat.id, welcomeHtml, appUrl);
+      } else {
+        console.warn(
+          "[concierge] webhook /start: задайте PUBLIC_APP_URL или FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
+        );
+      }
+    }
+  } catch (e) {
+    console.warn("[concierge] telegram webhook:", e?.message || e);
+  }
+  res.json({ ok: true });
+});
+
 function migrateDbOnce() {
   const db = readDb();
   let changed = false;
+  if (!db.pending_referrals || typeof db.pending_referrals !== "object") {
+    db.pending_referrals = {};
+    changed = true;
+  }
   for (const u of db.users) {
     if (u.profile_completed === undefined) {
       u.profile_completed = true;

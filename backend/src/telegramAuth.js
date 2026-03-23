@@ -24,10 +24,13 @@ function parseInitData(initData) {
     }
   }
 
+  const startParam = params.get("start_param") || "";
+
   return {
     hash,
     authDate,
     user,
+    startParam,
     dataCheckString: checkData.join("\n")
   };
 }
@@ -53,7 +56,8 @@ export function verifyTelegramInitData(initData, botToken) {
     return { ok: false, error: "Telegram signature mismatch" };
   }
 
-  return { ok: true, user: parsed.user };
+  const sp = (parsed.startParam || "").trim();
+  return { ok: true, user: parsed.user, startParam: sp || undefined };
 }
 
 export function createTelegramTestInitData(user, botToken, authDate = Math.floor(Date.now() / 1000)) {

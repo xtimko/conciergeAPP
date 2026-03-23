@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -5,16 +6,24 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Copy, Check, Users, Gift } from 'lucide-react';
+import { Copy, Check, Users, Gift, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const REF_PREFIX = 'ref_';
 
 export default function Referral() {
   const { lang } = useTheme();
-  const [copied, setCopied] = React.useState(false);
+  const [copiedCode, setCopiedCode] = React.useState(false);
+  const [copiedLink, setCopiedLink] = React.useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['me'],
     queryFn: () => base44.auth.me(),
+  });
+
+  const { data: pub } = useQuery({
+    queryKey: ['publicConfig'],
+    queryFn: () => base44.public.config(),
   });
 
   const { data: statsData } = useQuery({
@@ -46,16 +55,33 @@ export default function Referral() {
         const signed = o.client_bonus_mode === 'subtract' ? -raw : raw;
         return { o, signed };
       })
-      .sort((a, b) => new Date(b.o.created_date || 0) - new Date(a.o.created_date || 0));
+      .sort(
+        (a, b) =>
+          new Date(b.o.created_date || 0).getTime() - new Date(a.o.created_date || 0).getTime()
+      );
   }, [myOrders]);
 
   const code = user?.referral_code || '';
 
+  const referralLink = useMemo(() => {
+    const bot = pub?.telegramBotUsername;
+    if (!bot || !user?.id) return '';
+    return `https://t.me/${bot}?startapp=${REF_PREFIX}${user.id}`;
+  }, [pub?.telegramBotUsername, user?.id]);
+
   const copyCode = () => {
     navigator.clipboard.writeText(code);
     toast.success(t('codeCopied', lang));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const copyLink = () => {
+    if (!referralLink) return;
+    navigator.clipboard.writeText(referralLink);
+    toast.success(t('linkCopied', lang));
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   if (!user) return null;
@@ -69,6 +95,37 @@ export default function Referral() {
       </div>
 
       <GlassCard className="text-center">
+        <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] mb-2">
+          {t('referralLink', lang)}
+        </p>
+        <p className="text-[11px] text-muted-foreground mb-3 px-1 leading-relaxed">
+          {t('referralLinkHint', lang)}
+        </p>
+        {referralLink ? (
+          <>
+            <p className="text-[11px] font-mono break-all text-left bg-muted/20 rounded-lg px-2 py-2 mb-3">
+              {referralLink}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="glass border-border/30 text-xs"
+              onClick={copyLink}
+            >
+              {copiedLink ? <Check className="w-3 h-3 mr-2 text-green-400" /> : <Link2 className="w-3 h-3 mr-2" />}
+              {copiedLink ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : t('copyReferralLink', lang)}
+            </Button>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            {lang === 'ru'
+              ? 'Задайте TELEGRAM_BOT_USERNAME на сервере в .env — тогда здесь появится ссылка.'
+              : 'Set TELEGRAM_BOT_USERNAME in server .env to show the referral link.'}
+          </p>
+        )}
+      </GlassCard>
+
+      <GlassCard className="text-center">
         <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] mb-3">
           {t('referralCode', lang)}
         </p>
@@ -80,8 +137,8 @@ export default function Referral() {
             size="sm"
             className="glass border-border/30 text-xs"
           >
-            {copied ? <Check className="w-3 h-3 mr-2 text-green-400" /> : <Copy className="w-3 h-3 mr-2" />}
-            {copied ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : t('copyCode', lang)}
+            {copiedCode ? <Check className="w-3 h-3 mr-2 text-green-400" /> : <Copy className="w-3 h-3 mr-2" />}
+            {copiedCode ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : t('copyCode', lang)}
           </Button>
         )}
       </GlassCard>

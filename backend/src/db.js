@@ -10,7 +10,8 @@ const DB_PATH = path.join(__dirname, "..", "data.json");
 
 const initialData = {
   users: [],
-  orders: []
+  orders: [],
+  pending_referrals: {}
 };
 
 function ensureDb() {
