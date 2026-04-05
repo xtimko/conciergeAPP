@@ -19,6 +19,7 @@ import {
   getClientPublicId,
 } from '@/lib/clientDisplay';
 import { filterClientsForAdminList } from '@/lib/clientSearch';
+import { buildReferralLink } from '@/lib/referralLink';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -33,6 +34,11 @@ export default function AdminClients() {
   const { data: clients = [], isPending: clientsLoading } = useQuery({
     queryKey: ['allClients'],
     queryFn: () => base44.entities.User.list(),
+  });
+
+  const { data: pub } = useQuery({
+    queryKey: ['publicConfig'],
+    queryFn: () => base44.public.config(),
   });
 
   const { data: clientOrders = [], isPending: clientOrdersLoading } = useQuery({
@@ -155,7 +161,13 @@ export default function AdminClients() {
                       'Полный адрес',
                       buildClientDeliveryAddress(detailClient) || detailClient.delivery_address || '',
                     ],
-                    ['Реф. код', detailClient.referral_code],
+                    [
+                      'Реф. ссылка',
+                      buildReferralLink(detailClient, pub?.telegramBotUsername) ||
+                        (!pub?.telegramBotUsername
+                          ? 'Нет username бота (TELEGRAM_BOT_USERNAME)'
+                          : '—'),
+                    ],
                     ['Баллы', `${detailClient.bonus_balance ?? 0} pts`],
                   ].map(([label, val], i) => {
                     if (val == null || String(val).trim() === '') return null;

@@ -6,36 +6,25 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Check, Users, Gift, Link2 } from 'lucide-react';
+import { Check, Users, Gift, Link2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-const REF_PREFIX = 'ref_';
-
-function compactRefToken(user) {
-  const linkToken = String(user?.referral_link_token || '')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .toUpperCase();
-  if (linkToken) return linkToken;
-  const fallback = String(user?.referral_code || '')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .toUpperCase();
-  if (fallback) return fallback;
-  return String(user?.id || '').trim();
-}
+import { buildReferralLink } from '@/lib/referralLink';
 
 export default function Referral() {
   const { lang } = useTheme();
   const [copiedLink, setCopiedLink] = React.useState(false);
 
-  const { data: user } = useQuery({
+  const { data: user, isPending: userLoading } = useQuery({
     queryKey: ['me'],
     queryFn: () => base44.auth.me(),
   });
 
-  const { data: pub } = useQuery({
+  const { data: pub, isPending: pubLoading } = useQuery({
     queryKey: ['publicConfig'],
     queryFn: () => base44.public.config(),
   });
+
+  const configLoading = userLoading || pubLoading;
 
   const { data: statsData } = useQuery({
     queryKey: ['referralsStats'],
@@ -72,17 +61,7 @@ export default function Referral() {
       );
   }, [myOrders]);
 
-  const referralLink = useMemo(() => {
-    const bot = pub?.telegramBotUsername;
-    const token = compactRefToken(user);
-    if (!bot || !token) return '';
-    return `https://t.me/${bot}?startapp=${REF_PREFIX}${token}`;
-  }, [pub?.telegramBotUsername, user]);
-
-  const referralLinkDisplay = useMemo(() => {
-    if (!referralLink) return '';
-    return referralLink;
-  }, [referralLink]);
+  const referralLink = useMemo(() => buildReferralLink(user, pub?.telegramBotUsername), [pub?.telegramBotUsername, user]);
 
   const copyLink = () => {
     if (!referralLink) return;
@@ -91,6 +70,19 @@ export default function Referral() {
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
+
+  if (configLoading) {
+    return (
+      <div className="px-4 pt-6 space-y-5">
+        <GlassCard className="text-center py-8">
+          <Loader2 className="w-6 h-6 mx-auto animate-spin text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {lang === 'ru' ? 'Загрузка реферальной ссылки…' : 'Loading referral link…'}
+          </p>
+        </GlassCard>
+      </div>
+    );
+  }
 
   if (!user) return null;
 
@@ -112,7 +104,7 @@ export default function Referral() {
         {referralLink ? (
           <>
             <p className="text-[11px] font-mono break-all text-left bg-muted/20 rounded-lg px-2 py-2 mb-3">
-              {referralLinkDisplay}
+              {referralLink}
             </p>
             <Button
               variant="outline"

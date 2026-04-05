@@ -35,7 +35,7 @@ function formatEstimatedLine(order) {
     if (m) {
       const lo = Math.min(Number(m[1]), Number(m[2]));
       const hi = Math.max(Number(m[1]), Number(m[2]));
-      return `Срок ожидания: ~${lo}–${hi}дн.`;
+      return `Срок ожидания: ~${lo}-${hi}дн.`;
     }
   }
   const d = Number(order.estimated_days || 0);

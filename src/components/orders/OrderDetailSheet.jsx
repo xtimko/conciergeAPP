@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, Calendar, Tag, Banknote, Clock, Copy, Check } from 'lucide-react';
 import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics';
 import { toast } from 'sonner';
-import { parseEstimatedDaysFromOrder, formatExpectedDaysShort } from '@/lib/estimatedDelivery';
+import { formatOrderEtaClientLine } from '@/lib/estimatedDelivery';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 
 function formatDate(iso, locale) {
@@ -105,54 +105,9 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
     }
   };
 
-  const { etaLabel, daysLeftLabel } = useMemo(() => {
-    if (!order) return { etaLabel: null, daysLeftLabel: null };
-    const created = order.created_date ? new Date(order.created_date) : null;
-    const { min, max, isRange } = parseEstimatedDaysFromOrder(order);
-    if (!created || !max || max <= 0) {
-      return { etaLabel: null, daysLeftLabel: null };
-    }
-    const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
-    const fmtLong = (d) =>
-      d.toLocaleDateString(locale, {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-    const etaStart = new Date(created.getTime() + min * 86400000);
-    const etaEnd = new Date(created.getTime() + max * 86400000);
-    const shortWait = formatExpectedDaysShort(order, lang);
-    const datePart = isRange
-      ? `${fmtLong(etaStart)} — ${fmtLong(etaEnd)}`
-      : fmtLong(etaEnd);
-    const etaLabel = shortWait && datePart ? `${shortWait} · ${datePart}` : datePart;
-
-    const now = new Date();
-    const daysToStart = Math.ceil((etaStart.getTime() - now.getTime()) / 86400000);
-    const daysToEnd = Math.ceil((etaEnd.getTime() - now.getTime()) / 86400000);
-    let daysLeftLabel = null;
-    if (order.status !== 'delivered' && order.status !== 'cancelled') {
-      if (daysToEnd <= 0) {
-        daysLeftLabel =
-          lang === 'ru'
-            ? isRange
-              ? 'Срок окна истёк'
-              : 'Срок ожидания истёк'
-            : isRange
-              ? 'Expected window passed'
-              : 'Past expected date';
-      } else if (isRange) {
-        const a = Math.max(0, daysToStart);
-        const b = Math.max(0, daysToEnd);
-        daysLeftLabel = lang === 'ru' ? `~${a}–${b}дн.` : `~${a}–${b}d`;
-      } else if (daysToEnd === 1) {
-        daysLeftLabel = lang === 'ru' ? '~1дн. до ожидаемой даты' : '~1d left';
-      } else {
-        daysLeftLabel =
-          lang === 'ru' ? `~${daysToEnd}дн. до ожидаемой даты` : `~${daysToEnd}d left`;
-      }
-    }
-    return { etaLabel, daysLeftLabel };
+  const etaLabel = useMemo(() => {
+    if (!order) return null;
+    return formatOrderEtaClientLine(order, lang);
   }, [order, lang]);
 
   const statusStyles = {
@@ -167,7 +122,6 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
 
   const rows = useMemo(() => {
     if (!order) return [];
-    const est = parseEstimatedDaysFromOrder(order);
     const orderDateStr = formatDate(order.created_date, lang);
     const updatedStr = order.updated_date
       ? new Date(order.updated_date).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', {
@@ -203,13 +157,8 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
         label: lang === 'ru' ? 'Срок ожидания' : 'Waiting period',
         value: etaLabel,
       },
-      {
-        icon: Calendar,
-        label: lang === 'ru' ? 'Осталось (ориентир)' : 'Remaining (estimate)',
-        value: daysLeftLabel,
-      },
     ].filter((r) => r.value);
-  }, [order, lang, etaLabel, daysLeftLabel]);
+  }, [order, lang, etaLabel]);
 
   return (
     <>

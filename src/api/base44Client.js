@@ -115,10 +115,22 @@ export const base44 = {
       });
     },
     async completeOnboarding(payload) {
-      return request("/users/complete-onboarding", {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
+      try {
+        return await request("/users/complete-onboarding", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      } catch (error) {
+        // Частый кейс в Mini App: JWT ещё не подхватился или устарел до отправки формы.
+        if (error.status === 401 || error.status === 404) {
+          await loginDev();
+          return request("/users/complete-onboarding", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+        }
+        throw error;
+      }
     },
     async referralsStats() {
       return request("/referrals/stats");
@@ -176,6 +188,11 @@ export const base44 = {
         return request(`/orders/${id}`, {
           method: "PATCH",
           body: JSON.stringify(payload)
+        });
+      },
+      async delete(id) {
+        return request(`/orders/${id}`, {
+          method: "DELETE"
         });
       }
     }

@@ -1,5 +1,6 @@
 import { exportCsvString } from '@/lib/exportOrdersCsv';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
+import { orderPriceRub, orderCostRub, orderProfitRub } from '@/lib/orderFinanceRub';
 
 function escapeCell(val) {
   const s = val == null ? '' : String(val);
@@ -25,10 +26,13 @@ export function buildDeliveredPnLCsv(orders) {
     'client_name',
     'item_name',
     'brand',
-    'price',
-    'cost_price',
-    'profit',
+    'price_orig',
+    'cost_orig',
     'currency',
+    'fx_rate_to_rub',
+    'price_rub',
+    'cost_rub',
+    'profit_rub',
   ];
   const rows = delivered.map((o) => {
     const price = Number(o.price || 0);
@@ -42,8 +46,11 @@ export function buildDeliveredPnLCsv(orders) {
       o.brand,
       price,
       cost,
-      price - cost,
       o.currency || 'RUB',
+      Number(o.fx_rate_to_rub || 0) || '',
+      orderPriceRub(o),
+      orderCostRub(o),
+      orderProfitRub(o),
     ];
   });
   return rowsToCsv(headers, rows);
@@ -58,8 +65,8 @@ export function buildMonthlyDeliveredSummaryCsv(orders) {
     const m = typeof raw === 'string' && raw.length >= 7 ? raw.slice(0, 7) : null;
     if (!m) continue;
     if (!byMonth[m]) byMonth[m] = { revenue: 0, cost: 0, count: 0 };
-    byMonth[m].revenue += Number(o.price || 0);
-    byMonth[m].cost += Number(o.cost_price || 0);
+    byMonth[m].revenue += orderPriceRub(o);
+    byMonth[m].cost += orderCostRub(o);
     byMonth[m].count += 1;
   }
   const sorted = Object.keys(byMonth).sort();

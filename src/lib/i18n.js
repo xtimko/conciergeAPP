@@ -2,6 +2,7 @@ const translations = {
     ru: {
       welcome: "Добро пожаловать",
       bonusPoints: "Баллов",
+      writeForOrder: "Написать для заказа",
       yourOrders: "Ваши заказы",
       allOrders: "Все заказы",
       noOrders: "У вас пока нет заказов",
@@ -86,6 +87,7 @@ const translations = {
     en: {
       welcome: "Welcome",
       bonusPoints: "Points",
+      writeForOrder: "Message for your order",
       yourOrders: "Your orders",
       allOrders: "All orders",
       noOrders: "You have no orders yet",

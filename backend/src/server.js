@@ -17,6 +17,7 @@ import {
 } from "./telegramNotify.js";
 import { mergeNotifyPreferences } from "./clientNotifications.js";
 import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
+import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -30,6 +31,34 @@ const TELEGRAM_WEBHOOK_SECRET = String(process.env.TELEGRAM_WEBHOOK_SECRET || ""
 const ALLOW_DEV_TELEGRAM_LOGIN = process.env.ALLOW_DEV_TELEGRAM_LOGIN === "true";
 
 const REF_START_PREFIX = "ref_";
+
+const ORDER_CREATE_IDEM_TTL_MS = Math.max(
+  30_000,
+  Number(process.env.ORDER_CREATE_IDEM_TTL_MS || 120_000)
+);
+const orderCreateIdem = new Map();
+
+function sweepOrderCreateIdem() {
+  const now = Date.now();
+  for (const [k, v] of orderCreateIdem) {
+    if (v.expiresAt <= now) orderCreateIdem.delete(k);
+  }
+}
+
+function getIdempotentCreatedOrder(key) {
+  sweepOrderCreateIdem();
+  const k = String(key || "").trim();
+  if (!k || k.length > 200) return null;
+  const hit = orderCreateIdem.get(k);
+  if (hit && hit.expiresAt > Date.now()) return hit.payload;
+  return null;
+}
+
+function rememberIdempotentCreatedOrder(key, payload) {
+  const k = String(key || "").trim();
+  if (!k || k.length > 200) return;
+  orderCreateIdem.set(k, { payload, expiresAt: Date.now() + ORDER_CREATE_IDEM_TTL_MS });
+}
 
 function parseRefTokenFromStartParam(startParam) {
   if (!startParam || typeof startParam !== "string") return null;
@@ -476,10 +505,45 @@ function applyOrderBonusesIfNeeded(db, order) {
   db.orders[idx].bonuses_applied = true;
 }
 
+/** Откатывает уже примененные бонусы перед удалением заказа. */
+function revertOrderBonusesIfApplied(db, order) {
+  if (!order?.bonuses_applied) return;
+
+  const refBonus = Number(order.referrer_bonus || 0);
+  const referralBonus = Number(order.referral_bonus || 0);
+  const mode = order.client_bonus_mode === "subtract" ? -1 : 1;
+  const clientDelta = referralBonus * mode;
+
+  if (clientDelta !== 0 && order.client_email) {
+    const uidx = db.users.findIndex((u) => u.email === order.client_email);
+    if (uidx >= 0) {
+      db.users[uidx].bonus_balance = Number(db.users[uidx].bonus_balance || 0) - clientDelta;
+    }
+  }
+
+  if (refBonus > 0 && order.referrer_email) {
+    const ridx = db.users.findIndex((u) => u.email === order.referrer_email);
+    if (ridx >= 0) {
+      db.users[ridx].bonus_balance = Number(db.users[ridx].bonus_balance || 0) - refBonus;
+    }
+  }
+}
+
 app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   const db = readDb();
   const body = req.body || {};
+  const idemKey = String(body.idempotency_key || "").trim().slice(0, 200);
+  if (idemKey) {
+    const prev = getIdempotentCreatedOrder(idemKey);
+    if (prev) return res.status(200).json(prev);
+  }
   const est = normalizeEstimatedDays(body);
+  const fxRaw = body.fx_rate_to_rub;
+  const fxNum = fxRaw === undefined || fxRaw === "" ? 0 : Number(fxRaw);
+  const currency = String(body.currency || "RUB").toUpperCase();
+  const fx_rate_to_rub =
+    currency === "RUB" ? 0 : Number.isFinite(fxNum) && fxNum > 0 ? fxNum : 0;
+
   const order = {
     id: nextOrderPublicId(db),
     client_email: body.client_email || "",
@@ -491,8 +555,9 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
     brand: body.brand || "",
     price: Number(body.price || 0),
     cost_price: Number(body.cost_price || 0),
-    currency: body.currency || "RUB",
-    status: body.status || "pending",
+    currency,
+    fx_rate_to_rub,
+    status: body.status || "confirmed",
     estimated_days: est.estimated_days,
     estimated_days_range: est.estimated_days_range,
     image_url: body.image_url || "",
@@ -511,6 +576,7 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   if (TELEGRAM_BOT_TOKEN && (order.client_email || order.client_telegram_id)) {
     notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, order, "created");
   }
+  if (idemKey) rememberIdempotentCreatedOrder(idemKey, order);
   res.status(201).json(order);
 });
 
@@ -528,6 +594,16 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
     const est = normalizeEstimatedDays({ estimated_days: body.estimated_days });
     body.estimated_days = est.estimated_days;
     body.estimated_days_range = est.estimated_days_range;
+  }
+  if (body.fx_rate_to_rub !== undefined) {
+    const cur = String(body.currency !== undefined ? body.currency : before.currency || "RUB").toUpperCase();
+    const fxRaw = body.fx_rate_to_rub;
+    const fxNum = fxRaw === "" || fxRaw == null ? 0 : Number(fxRaw);
+    body.fx_rate_to_rub =
+      cur === "RUB" ? 0 : Number.isFinite(fxNum) && fxNum > 0 ? fxNum : 0;
+  } else if (body.currency !== undefined) {
+    const cur = String(body.currency || "RUB").toUpperCase();
+    if (cur === "RUB") body.fx_rate_to_rub = 0;
   }
   db.orders[idx] = { ...before, ...body, updated_date: nowIso() };
   db.orders[idx].client_telegram_id = deriveClientTelegramIdFromBody(db.orders[idx]);
@@ -558,6 +634,19 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   }
 
   res.json(after);
+});
+
+app.delete("/api/orders/:id", authRequired, adminRequired, (req, res) => {
+  const db = readDb();
+  const idx = db.orders.findIndex((o) => o.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ message: "Order not found" });
+
+  const order = db.orders[idx];
+  revertOrderBonusesIfApplied(db, order);
+  db.orders.splice(idx, 1);
+  writeDb(db);
+
+  res.json({ ok: true });
 });
 
 app.get("/api/referrals/stats", authRequired, (req, res) => {
@@ -666,6 +755,10 @@ function migrateDbOnce() {
     db.pending_referrals = {};
     changed = true;
   }
+  if (!db.app_meta || typeof db.app_meta !== "object") {
+    db.app_meta = {};
+    changed = true;
+  }
   for (const u of db.users) {
     if (u.profile_completed === undefined) {
       u.profile_completed = true;
@@ -712,11 +805,17 @@ function migrateDbOnce() {
       o.cost_price = 0;
       changed = true;
     }
+    if (o.fx_rate_to_rub === undefined) {
+      o.fx_rate_to_rub = 0;
+      changed = true;
+    }
   }
   if (changed) writeDb(db);
 }
 
 migrateDbOnce();
+
+scheduleAdminOrderDigest(TELEGRAM_BOT_TOKEN);
 
 app.listen(PORT, () => {
   console.log(`[concierge] API running on http://localhost:${PORT} (storage: data.json)`);

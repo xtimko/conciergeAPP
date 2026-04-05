@@ -7,6 +7,7 @@ import { ClipboardList, Users, Package, TrendingUp, Wallet } from 'lucide-react'
 import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { getStatusLabel } from '@/lib/i18n';
+import { orderPriceRub, orderProfitRub } from '@/lib/orderFinanceRub';
 
 export default function AdminDashboard() {
   const { data: orders = [], isPending: ordersLoading } = useQuery({
@@ -28,11 +29,8 @@ export default function AdminDashboard() {
   }, [orders]);
 
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
-  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.price || 0), 0);
-  const totalProfit = orders.reduce(
-    (sum, o) => sum + (Number(o.price || 0) - Number(o.cost_price || 0)),
-    0,
-  );
+  const totalRevenue = orders.reduce((sum, o) => sum + orderPriceRub(o), 0);
+  const totalProfit = orders.reduce((sum, o) => sum + orderProfitRub(o), 0);
 
   const stats = [
     { icon: ClipboardList, label: 'Заказы', value: orders.length },
@@ -87,9 +85,7 @@ export default function AdminDashboard() {
               getClientDisplayHandle(client) ||
               '—';
             const profitDel =
-              order.status === 'delivered'
-                ? Math.round(Number(order.price || 0) - Number(order.cost_price || 0))
-                : null;
+              order.status === 'delivered' ? Math.round(orderProfitRub(order)) : null;
             return (
               <div
                 key={order.id}

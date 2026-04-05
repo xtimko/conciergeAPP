@@ -19,16 +19,36 @@ export function parseEstimatedDaysFromOrder(order) {
   return { min: 0, max: 0, isRange: false };
 }
 
-/** Короткая строка для UI: ~14дн. / ~7–14дн. */
+/** Короткая строка для UI: ~14дн. / ~5-10дн. (дефис между числами). */
 export function formatExpectedDaysShort(order, lang = 'ru') {
   const { min, max, isRange } = parseEstimatedDaysFromOrder(order);
   if (!max || max <= 0) return null;
   if (lang === 'ru') {
-    if (isRange && min !== max) return `~${min}–${max}дн.`;
+    if (isRange && min !== max) return `~${min}-${max}дн.`;
     return `~${max}дн.`;
   }
-  if (isRange && min !== max) return `~${min}–${max}d`;
+  if (isRange && min !== max) return `~${min}-${max}d`;
   return `~${max}d`;
+}
+
+/**
+ * Одна строка для клиента: срок + крайняя дата окна (created + max дней).
+ * Пример: ~5-10дн. до 16 апреля 2026 г.
+ */
+export function formatOrderEtaClientLine(order, lang = 'ru', { compact = false } = {}) {
+  const created = order?.created_date ? new Date(order.created_date) : null;
+  const { max } = parseEstimatedDaysFromOrder(order);
+  if (!created || Number.isNaN(created.getTime()) || !max || max <= 0) return null;
+
+  const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
+  const etaEnd = new Date(created.getTime() + max * 86400000);
+  const shortWait = formatExpectedDaysShort(order, lang);
+  const dateOpts = compact
+    ? { day: 'numeric', month: 'short', year: 'numeric' }
+    : { day: 'numeric', month: 'long', year: 'numeric' };
+  const dateStr = etaEnd.toLocaleDateString(locale, dateOpts);
+  const until = lang === 'ru' ? `до ${dateStr}` : `until ${dateStr}`;
+  return shortWait ? `${shortWait} ${until}` : until;
 }
 
 /** Нормализация ввода админа → API */

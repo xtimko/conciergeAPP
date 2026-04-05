@@ -8,10 +8,7 @@ import { Download, Wallet, TrendingUp, Package, Percent, CalendarRange } from 'l
 import { toast } from 'sonner';
 import { exportDeliveredPnLFile, exportMonthlySummaryFile } from '@/lib/exportFinanceCsv';
 import { hapticSuccess, hapticError } from '@/lib/telegramHaptics';
-
-function num(n) {
-  return Number(n || 0);
-}
+import { orderPriceRub, orderCostRub } from '@/lib/orderFinanceRub';
 
 export default function AdminFinance() {
   const { data: orders = [], isPending: loading } = useQuery({
@@ -22,10 +19,10 @@ export default function AdminFinance() {
   const metrics = useMemo(() => {
     const delivered = orders.filter((o) => o.status === 'delivered');
     const active = orders.filter((o) => !['delivered', 'cancelled'].includes(o.status));
-    const revDel = delivered.reduce((s, o) => s + num(o.price), 0);
-    const costDel = delivered.reduce((s, o) => s + num(o.cost_price), 0);
+    const revDel = delivered.reduce((s, o) => s + orderPriceRub(o), 0);
+    const costDel = delivered.reduce((s, o) => s + orderCostRub(o), 0);
     const profitDel = revDel - costDel;
-    const pipeline = active.reduce((s, o) => s + num(o.price), 0);
+    const pipeline = active.reduce((s, o) => s + orderPriceRub(o), 0);
     const marginPct =
       revDel > 0 ? Math.round((profitDel / revDel) * 1000) / 10 : null;
     return {

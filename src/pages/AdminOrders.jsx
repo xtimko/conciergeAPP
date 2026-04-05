@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw } from 'lucide-react';
+import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
@@ -20,6 +20,16 @@ import { getClientEmailForOrder } from '@/lib/clientDisplay';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
 import { useAdminChrome } from '@/lib/adminChromeContext';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 
 function inDateRange(iso, fromStr, toStr) {
   if (!fromStr && !toStr) return true;
@@ -52,7 +62,7 @@ const emptyOrder = {
   price: '',
   cost_price: '',
   currency: 'RUB',
-  status: 'pending',
+  status: 'confirmed',
   estimated_days: '',
   notes: '',
   image_url: '',
@@ -60,6 +70,7 @@ const emptyOrder = {
   referral_bonus: 0,
   referrer_email: '',
   client_bonus_mode: 'add',
+  fx_rate_to_rub: '',
 };
 
 function formatClientLine(c) {
@@ -94,6 +105,10 @@ export default function AdminOrders() {
   const [copiedId, setCopiedId] = useState(null);
   /** created_desc | created_asc | updated_desc | date_range (промежуток + поля С/По) */
   const [sortMode, setSortMode] = useState('created_desc');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [createIdempotencyKey, setCreateIdempotencyKey] = useState('');
   const queryClient = useQueryClient();
   const adminChrome = useAdminChrome();
   const setHeaderRight = adminChrome?.setHeaderRight;
@@ -234,6 +249,11 @@ export default function AdminOrders() {
     setSelectedClientId(null);
     setClientAddress('');
     setAddrCopied(false);
+    setCreateIdempotencyKey(
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `idem_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`,
+    );
     setDialogOpen(true);
   }, []);
 
@@ -254,6 +274,7 @@ export default function AdminOrders() {
 
   const openEdit = async (order) => {
     setEditingOrder(order);
+    setCreateIdempotencyKey('');
     setAddrCopied(false);
     const found = order.client_email
       ? clients.find((c) => c.email === order.client_email)
@@ -289,6 +310,10 @@ export default function AdminOrders() {
       referral_bonus: order.referral_bonus || 0,
       referrer_email: order.referrer_email || '',
       client_bonus_mode: order.client_bonus_mode === 'subtract' ? 'subtract' : 'add',
+      fx_rate_to_rub:
+        order.fx_rate_to_rub != null && Number(order.fx_rate_to_rub) > 0
+          ? String(order.fx_rate_to_rub)
+          : '',
     });
     setDialogOpen(true);
   };
@@ -315,6 +340,7 @@ export default function AdminOrders() {
   };
 
   const handleSave = async () => {
+    if (orderSaving) return;
     const selected = clients.find((c) => c.id === selectedClientId);
     if (!editingOrder && (!selectedClientId || !selected)) {
       hapticError();
@@ -324,6 +350,13 @@ export default function AdminOrders() {
     if (!form.item_name?.trim()) {
       hapticError();
       toast.error('Укажите название товара');
+      return;
+    }
+
+    const cur = String(form.currency || 'RUB').toUpperCase();
+    if ((cur === 'USD' || cur === 'EUR') && !(Number(form.fx_rate_to_rub) > 0)) {
+      hapticError();
+      toast.error(`Укажите курс к ₽ за 1 ${cur} (для финансов и отчётов)`);
       return;
     }
 
@@ -342,14 +375,19 @@ export default function AdminOrders() {
       referrer_bonus: Number(form.referrer_bonus) || 0,
       referral_bonus: Number(form.referral_bonus) || 0,
       client_bonus_mode: form.client_bonus_mode === 'subtract' ? 'subtract' : 'add',
+      fx_rate_to_rub: cur === 'RUB' ? 0 : Number(form.fx_rate_to_rub) || 0,
     };
 
+    setOrderSaving(true);
     try {
       if (editingOrder) {
         await base44.entities.Order.update(editingOrder.id, data);
         toast.success('Заказ обновлён');
       } else {
-        await base44.entities.Order.create(data);
+        await base44.entities.Order.create({
+          ...data,
+          ...(createIdempotencyKey ? { idempotency_key: createIdempotencyKey } : {}),
+        });
         toast.success('Заказ создан');
       }
       hapticSuccess();
@@ -359,6 +397,8 @@ export default function AdminOrders() {
     } catch (e) {
       hapticError();
       toast.error(e?.message || 'Не удалось сохранить');
+    } finally {
+      setOrderSaving(false);
     }
   };
 
@@ -402,6 +442,25 @@ export default function AdminOrders() {
     } catch (e) {
       hapticError();
       toast.error(e?.message || 'Не удалось обновить статус');
+    }
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await base44.entities.Order.delete(deleteTarget.id);
+      queryClient.invalidateQueries({ queryKey: ['allOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['allClients'] });
+      toast.success('Заказ удалён');
+      hapticSuccess();
+      if (statusQuick?.id === deleteTarget.id) setStatusQuick(null);
+      setDeleteTarget(null);
+    } catch (e) {
+      hapticError();
+      toast.error(e?.message || 'Не удалось удалить заказ');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -704,6 +763,18 @@ export default function AdminOrders() {
                 >
                   <Pencil className="w-4 h-4" />
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(order);
+                  }}
+                  className="h-11 w-11 min-h-[44px] min-w-[44px] text-red-400 hover:text-red-300"
+                  aria-label="Удалить заказ"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </GlassCard>
           ))
@@ -874,7 +945,16 @@ export default function AdminOrders() {
             </div>
             <div>
               <Label className="text-xs">Валюта</Label>
-              <Select value={form.currency} onValueChange={(v) => updateField('currency', v)}>
+              <Select
+                value={form.currency}
+                onValueChange={(v) =>
+                  setForm((p) => ({
+                    ...p,
+                    currency: v,
+                    fx_rate_to_rub: v === 'RUB' ? '' : p.fx_rate_to_rub,
+                  }))
+                }
+              >
                 <SelectTrigger className="mt-1 bg-transparent border-border/30">
                   <SelectValue />
                 </SelectTrigger>
@@ -887,6 +967,26 @@ export default function AdminOrders() {
                 </SelectContent>
               </Select>
             </div>
+            {(form.currency === 'USD' || form.currency === 'EUR') && (
+              <div className="col-span-2">
+                <Label className="text-xs">Курс к ₽ (за 1 {form.currency})</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  value={form.fx_rate_to_rub}
+                  onChange={(e) => updateField('fx_rate_to_rub', e.target.value)}
+                  className="mt-1 bg-transparent border-border/30"
+                  placeholder="Например 92.5"
+                  enterKeyHint="next"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                  Для клиента цена остаётся в {form.currency}. В финансах и CSV суммы пересчитываются в
+                  рубли.
+                </p>
+              </div>
+            )}
             <div>
               <Label className="text-xs">Статус</Label>
               <Select value={form.status} onValueChange={(v) => updateField('status', v)}>
@@ -1038,14 +1138,43 @@ export default function AdminOrders() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!editingOrder && !selectedClientId}
+              disabled={orderSaving || (!editingOrder && !selectedClientId)}
               className="bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 min-w-[7rem]"
             >
-              Сохранить
+              {orderSaving ? 'Сохранение…' : 'Сохранить'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="border-border/60 bg-background">
+          <AlertDialogHeader className="">
+            <AlertDialogTitle className="text-base">Удалить заказ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Заказ будет удалён безвозвратно.
+              {' '}
+              Если по нему уже были применены бонусы, баланс клиентов будет автоматически
+              пересчитан.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteTarget ? (
+            <p className="text-xs text-muted-foreground break-all">
+              {deleteTarget.item_name || 'Без названия'} · {formatOrderDisplayId(deleteTarget)}
+            </p>
+          ) : null}
+          <AlertDialogFooter className="">
+            <AlertDialogCancel disabled={deleting}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteOrder}
+              disabled={deleting}
+              className="bg-red-600 text-white hover:bg-red-500"
+            >
+              {deleting ? 'Удаление…' : 'Удалить'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
