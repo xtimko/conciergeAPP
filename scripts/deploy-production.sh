@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Полный деплой: фронт (dist) + бэкенд (src + package.json) + npm install на сервере + restart.
+# Автоматически то же делает GitHub Actions: .github/workflows/deploy-production.yml
 #
 # Настройки (можно переопределить переменными окружения):
 #   DEPLOY_HOST          — хост SSH (по умолчанию 194.67.101.182)

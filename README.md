@@ -38,3 +38,5 @@ git push origin main
 # пример: другой каталог под nginx
 DEPLOY_REMOTE_WEB=/var/www/concierge ./scripts/deploy-production.sh
 ```
+
+**3. Автодеплой из GitHub** — после `push` в `main` workflow [`.github/workflows/deploy-production.yml`](.github/workflows/deploy-production.yml) собирает фронт и делает то же, что скрипт (rsync + рестарт). В репозитории нужны secrets `DEPLOY_SSH_PRIVATE_KEY` и `DEPLOY_HOST` (остальные — в комментариях в начале workflow). Ручной запуск: вкладка **Actions** → **Deploy production** → **Run workflow**.

@@ -1,0 +1,98 @@
+# Деплой на VPS после push в main (и вручную: Actions → Deploy production → Run workflow).
+#
+# Обязательные GitHub Secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_PRIVATE_KEY — полный приватный ключ OpenSSH (многострочный), доступ к DEPLOY_USER на сервере
+#   DEPLOY_HOST            — IP или хост (например 194.67.101.182)
+#
+# Опционально:
+#   DEPLOY_USER              — по умолчанию root
+#   DEPLOY_SSH_PORT          — по умолчанию 22
+#   DEPLOY_REMOTE_BACKEND    — по умолчанию /opt/concierge/backend
+#   DEPLOY_REMOTE_WEB        — по умолчанию /opt/concierge/web
+#
+# На сервере у пользователя должен работать systemctl для concierge-api (root или NOPASSWD sudo).
+
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.repository.fork }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies and build
+        run: npm ci && npm run build
+
+      - name: Rsync and restart on server
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          DEPLOY_REMOTE_BACKEND: ${{ secrets.DEPLOY_REMOTE_BACKEND }}
+          DEPLOY_REMOTE_WEB: ${{ secrets.DEPLOY_REMOTE_WEB }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_SSH_PRIVATE_KEY:-}" ] || [ -z "${DEPLOY_HOST:-}" ]; then
+            echo "::error::Задайте secrets DEPLOY_SSH_PRIVATE_KEY и DEPLOY_HOST (см. комментарий в начале workflow)."
+            exit 1
+          fi
+
+          USER="${DEPLOY_USER:-root}"
+          PORT="${DEPLOY_SSH_PORT:-22}"
+          REMOTE_BACKEND="${DEPLOY_REMOTE_BACKEND:-}"
+          [ -z "$REMOTE_BACKEND" ] && REMOTE_BACKEND="/opt/concierge/backend"
+          REMOTE_WEB="${DEPLOY_REMOTE_WEB:-}"
+          [ -z "$REMOTE_WEB" ] && REMOTE_WEB="/opt/concierge/web"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          RSYNC=(rsync -az --delete -e "ssh -i $HOME/.ssh/deploy_key -p $PORT -o IdentitiesOnly=yes")
+          SSH=(ssh -i "$HOME/.ssh/deploy_key" -p "$PORT" -o IdentitiesOnly=yes "${USER}@${DEPLOY_HOST}")
+
+          echo "==> rsync backend/src"
+          "${RSYNC[@]}" ./backend/src/ "${USER}@${DEPLOY_HOST}:${REMOTE_BACKEND}/src/"
+
+          echo "==> rsync backend/package.json + package-lock.json"
+          "${RSYNC[@]}" ./backend/package.json ./backend/package-lock.json "${USER}@${DEPLOY_HOST}:${REMOTE_BACKEND}/"
+
+          echo "==> mkdir remote web"
+          "${SSH[@]}" "mkdir -p ${REMOTE_WEB}"
+
+          echo "==> rsync dist/"
+          "${RSYNC[@]}" ./dist/ "${USER}@${DEPLOY_HOST}:${REMOTE_WEB}/"
+
+          echo "==> remote npm + restart"
+          "${SSH[@]}" "set -euo pipefail
+          cd \"${REMOTE_BACKEND}\"
+          if command -v npm >/dev/null 2>&1; then
+            npm ci --omit=dev 2>/dev/null || npm install --omit=dev
+          fi
+          node --check src/server.js
+          sudo systemctl restart concierge-api
+          if command -v nginx >/dev/null 2>&1; then
+            sudo nginx -t && sudo systemctl reload nginx || true
+          fi
+          echo '--- journalctl concierge-api (last 40) ---'
+          sudo journalctl -u concierge-api -n 40 --no-pager"
+
+          shred -u ~/.ssh/deploy_key 2>/dev/null || rm -f ~/.ssh/deploy_key
