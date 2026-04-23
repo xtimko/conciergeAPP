@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
@@ -16,12 +16,12 @@ export default function Home() {
 
   const { data: user } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
   });
 
   const { data: orders = [] } = useQuery({
     queryKey: ['myOrders', user?.email],
-    queryFn: () => base44.entities.Order.filter({ client_email: user.email }),
+    queryFn: () => api.entities.Order.filter({ client_email: user.email }),
     enabled: !!user?.email,
   });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
@@ -21,14 +21,14 @@ export default function Settings() {
 
   const { data: me } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
   });
 
   const prefs = { ...defaultNotifyPrefs(), ...(me?.notify_preferences || {}) };
 
   const setNotifyKey = async (key, value) => {
     try {
-      await base44.auth.updateMe({
+      await api.auth.updateMe({
         notify_preferences: { ...prefs, [key]: value },
       });
       queryClient.invalidateQueries({ queryKey: ['me'] });
@@ -39,14 +39,14 @@ export default function Settings() {
 
   const handleLangChange = async (newLang) => {
     setLang(newLang);
-    await base44.auth.updateMe({ language: newLang });
+    await api.auth.updateMe({ language: newLang });
     queryClient.invalidateQueries({ queryKey: ['me'] });
   };
 
   const handleThemeChange = async (newTheme) => {
     setTheme(newTheme);
     try {
-      await base44.auth.updateMe({ theme: newTheme });
+      await api.auth.updateMe({ theme: newTheme });
       queryClient.invalidateQueries({ queryKey: ['me'] });
     } catch (e) {
       toast.error(lang === 'ru' ? 'Не удалось сохранить тему' : 'Could not save theme');
@@ -54,7 +54,7 @@ export default function Settings() {
   };
 
   const handleLogout = () => {
-    base44.auth.logout();
+    api.auth.logout();
   };
 
   return (

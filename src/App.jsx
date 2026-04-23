@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { ThemeProvider, useTheme } from '@/lib/ThemeContext';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 
 // Layouts
 import ClientLayout from '@/components/layout/ClientLayout';
@@ -32,7 +32,7 @@ function ProfileGate({ children }) {
   /** Не дублировать «вечную» загрузку: /me уже отработал в AuthProvider */
   const { data: user = authUser, isPending } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
     initialData: authUser ?? undefined,
   });
 
@@ -59,7 +59,7 @@ function ProfileGate({ children }) {
 const AppRoutes = () => {
   const { data: user } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
   });
 
   const isAdmin = user?.role === 'admin';
@@ -91,7 +91,7 @@ const ThemeInitializer = ({ children }) => {
   const { user: authUser } = useAuth();
   const { data: user = authUser } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
     initialData: authUser ?? undefined,
   });
 

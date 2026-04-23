@@ -43,7 +43,7 @@ function loadImage(src) {
   });
 }
 
-/** Для UploadFile: маленький File из data URL после сжатия. */
+/** Маленький File из data URL после сжатия (например для поля фото в профиле). */
 export function dataUrlToFile(dataUrl, baseName = 'photo') {
   const arr = dataUrl.split(',');
   const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';

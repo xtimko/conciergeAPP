@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
@@ -51,7 +51,7 @@ export default function Onboarding() {
     }
     setLoading(true);
     try {
-      await base44.auth.completeOnboarding({
+      await api.auth.completeOnboarding({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         phone: form.phone.trim(),

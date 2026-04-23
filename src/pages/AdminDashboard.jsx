@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,12 +12,12 @@ import { orderPriceRub, orderProfitRub } from '@/lib/orderFinanceRub';
 export default function AdminDashboard() {
   const { data: orders = [], isPending: ordersLoading } = useQuery({
     queryKey: ['allOrders'],
-    queryFn: () => base44.entities.Order.list(),
+    queryFn: () => api.entities.Order.list(),
   });
 
   const { data: clients = [], isPending: clientsLoading } = useQuery({
     queryKey: ['allClients'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => api.entities.User.list(),
   });
 
   const loading = ordersLoading || clientsLoading;

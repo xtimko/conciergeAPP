@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
@@ -16,25 +16,25 @@ export default function Referral() {
 
   const { data: user, isPending: userLoading } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
   });
 
   const { data: pub, isPending: pubLoading } = useQuery({
     queryKey: ['publicConfig'],
-    queryFn: () => base44.public.config(),
+    queryFn: () => api.public.config(),
   });
 
   const configLoading = userLoading || pubLoading;
 
   const { data: statsData } = useQuery({
     queryKey: ['referralsStats'],
-    queryFn: () => base44.auth.referralsStats(),
+    queryFn: () => api.auth.referralsStats(),
     enabled: !!user?.email,
   });
 
   const { data: myOrders = [] } = useQuery({
     queryKey: ['myOrders', user?.email],
-    queryFn: () => base44.entities.Order.filter({ client_email: user.email }),
+    queryFn: () => api.entities.Order.filter({ client_email: user.email }),
     enabled: !!user?.email,
   });
 

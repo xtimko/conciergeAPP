@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
@@ -33,18 +33,18 @@ export default function AdminClients() {
 
   const { data: clients = [], isPending: clientsLoading } = useQuery({
     queryKey: ['allClients'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => api.entities.User.list(),
   });
 
   const { data: pub } = useQuery({
     queryKey: ['publicConfig'],
-    queryFn: () => base44.public.config(),
+    queryFn: () => api.public.config(),
   });
 
   const { data: clientOrders = [], isPending: clientOrdersLoading } = useQuery({
     queryKey: ['clientOrders', selectedClient?.id],
     queryFn: () =>
-      base44.entities.Order.filter({ client_email: getClientEmailForOrder(selectedClient) }),
+      api.entities.Order.filter({ client_email: getClientEmailForOrder(selectedClient) }),
     enabled: !!selectedClient && showOrders,
   });
 
@@ -66,7 +66,7 @@ export default function AdminClients() {
 
   const handleSave = async () => {
     try {
-      await base44.entities.User.update(selectedClient.id, {
+      await api.entities.User.update(selectedClient.id, {
         ...editForm,
         bonus_balance: Number(editForm.bonus_balance) || 0,
       });

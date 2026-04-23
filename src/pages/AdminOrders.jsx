@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
@@ -115,12 +115,12 @@ export default function AdminOrders() {
 
   const { data: orders = [], isPending: ordersLoading } = useQuery({
     queryKey: ['allOrders'],
-    queryFn: () => base44.entities.Order.list(),
+    queryFn: () => api.entities.Order.list(),
   });
 
   const { data: clients = [] } = useQuery({
     queryKey: ['allClients'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => api.entities.User.list(),
   });
 
   const selectedClient = useMemo(
@@ -229,7 +229,7 @@ export default function AdminOrders() {
       return;
     }
     try {
-      await Promise.all(ids.map((id) => base44.entities.Order.update(id, { status: bulkApplyStatus })));
+      await Promise.all(ids.map((id) => api.entities.Order.update(id, { status: bulkApplyStatus })));
       queryClient.invalidateQueries({ queryKey: ['allOrders'] });
       queryClient.invalidateQueries({ queryKey: ['allClients'] });
       setSelectedIds(new Set());
@@ -381,10 +381,10 @@ export default function AdminOrders() {
     setOrderSaving(true);
     try {
       if (editingOrder) {
-        await base44.entities.Order.update(editingOrder.id, data);
+        await api.entities.Order.update(editingOrder.id, data);
         toast.success('Заказ обновлён');
       } else {
-        await base44.entities.Order.create({
+        await api.entities.Order.create({
           ...data,
           ...(createIdempotencyKey ? { idempotency_key: createIdempotencyKey } : {}),
         });
@@ -433,7 +433,7 @@ export default function AdminOrders() {
   const saveQuickStatus = async () => {
     if (!statusQuick) return;
     try {
-      await base44.entities.Order.update(statusQuick.id, { status: quickStatusValue });
+      await api.entities.Order.update(statusQuick.id, { status: quickStatusValue });
       toast.success('Статус обновлён');
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['allOrders'] });
@@ -449,7 +449,7 @@ export default function AdminOrders() {
     if (!deleteTarget || deleting) return;
     setDeleting(true);
     try {
-      await base44.entities.Order.delete(deleteTarget.id);
+      await api.entities.Order.delete(deleteTarget.id);
       queryClient.invalidateQueries({ queryKey: ['allOrders'] });
       queryClient.invalidateQueries({ queryKey: ['allClients'] });
       toast.success('Заказ удалён');

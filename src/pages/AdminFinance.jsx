@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { orderPriceRub, orderCostRub } from '@/lib/orderFinanceRub';
 export default function AdminFinance() {
   const { data: orders = [], isPending: loading } = useQuery({
     queryKey: ['allOrders'],
-    queryFn: () => base44.entities.Order.list(),
+    queryFn: () => api.entities.Order.list(),
   });
 
   const metrics = useMemo(() => {

@@ -1,39 +1,40 @@
-**Welcome to your Base44 project** 
+# Concierge — клиентский сервис
 
-**About**
+Фронт: **Vite + React** (`npm run dev`). API: **Express** в каталоге `backend/` (`npm run dev` внутри `backend/`).
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Переменные окружения
 
-This project contains everything you need to run your app locally.
+В корне проекта (для сборки фронта) можно задать `.env` или `.env.local`:
 
-**Edit the code in your local development environment**
+- `VITE_API_BASE_URL` — полный URL до префикса `/api` без слэша в конце, например `https://example.com/api`. Если не задан, в браузере используется `window.location.origin + "/api"`.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+Подробности по бэкенду и Telegram — в `backend/docs/`.
 
-**Prerequisites:** 
+## Команды
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+```bash
+npm install          # фронт
+npm run dev          # dev-сервер Vite
+npm run build        # прод-сборка → dist/
 
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+cd backend && npm install && npm run dev   # API на порту из PORT или 8787
 ```
 
-Run the app: `npm run dev`
+## Деплой на прод (одним скриптом)
 
-**Publish your changes**
+**1. Сначала GitHub** (чтобы история и бэкап кода были в репо):
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+```bash
+git add -A
+git status
+git commit -m "Кратко: что изменилось"
+git push origin main
+```
 
-**Docs & Support**
+**2. Потом прод** — скрипт собирает фронт, заливает `dist/` и `backend/src/` (+ `package.json` бэкенда), на сервере делает `npm ci`/`npm install` и `systemctl restart concierge-api`. Пути по умолчанию как у вашего VPS; при необходимости задайте переменные (см. комментарии в скрипте).
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+```bash
+./scripts/deploy-production.sh
+# пример: другой каталог под nginx
+DEPLOY_REMOTE_WEB=/var/www/concierge ./scripts/deploy-production.sh
+```

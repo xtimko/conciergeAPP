@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
@@ -21,7 +21,7 @@ export default function Profile() {
 
   const { data: user } = useQuery({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => api.auth.me(),
   });
 
   const [form, setForm] = useState({});
@@ -62,7 +62,7 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
-    await base44.auth.updateMe(form);
+    await api.auth.updateMe(form);
     queryClient.invalidateQueries({ queryKey: ['me'] });
     setEditing(false);
     toast.success(lang === 'ru' ? 'Данные сохранены' : 'Data saved');

@@ -87,8 +87,8 @@ async function loginDev() {
   return result.user;
 }
 
-export const base44 = {
-  /** Публичный конфиг (имя бота для реферальной ссылки и т.д.) */
+/** HTTP-клиент к бэкенду (Express API). */
+export const api = {
   public: {
     async config() {
       return request("/public/config");
@@ -99,9 +99,6 @@ export const base44 = {
       try {
         return await request("/auth/me");
       } catch (error) {
-        // Если токен есть, но пользователь не найден в БД (404) — это значит, что
-        // аккаунт ещё не был создан/перестворён. В этом случае пробуем войти
-        // через Telegram еще раз.
         if (error.status === 401 || error.status === 404) {
           return loginDev();
         }
@@ -121,7 +118,6 @@ export const base44 = {
           body: JSON.stringify(payload)
         });
       } catch (error) {
-        // Частый кейс в Mini App: JWT ещё не подхватился или устарел до отправки формы.
         if (error.status === 401 || error.status === 404) {
           await loginDev();
           return request("/users/complete-onboarding", {
@@ -193,19 +189,6 @@ export const base44 = {
       async delete(id) {
         return request(`/orders/${id}`, {
           method: "DELETE"
-        });
-      }
-    }
-  },
-  integrations: {
-    Core: {
-      async UploadFile({ file }) {
-        if (!file) return { file_url: "" };
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve({ file_url: reader.result });
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.readAsDataURL(file);
         });
       }
     }
