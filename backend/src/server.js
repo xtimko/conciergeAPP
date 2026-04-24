@@ -18,6 +18,7 @@ import {
 import { mergeNotifyPreferences } from "./clientNotifications.js";
 import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
 import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
+import { notifyAdminsNewClient } from "./adminNotifyRegistration.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -249,6 +250,9 @@ app.post("/api/auth/telegram", (req, res) => {
       applyReferralToNewUser(db, user, refId);
       db.users.push(user);
       writeDb(db);
+      void notifyAdminsNewClient(TELEGRAM_BOT_TOKEN, user).catch((err) =>
+        console.warn("[auth/telegram] notifyAdminsNewClient:", err?.message || err)
+      );
       console.log(
         "[auth/telegram] created user telegram_id=",
         telegramUser.id,

@@ -43,3 +43,9 @@ promo_10: {
 2. Вызов: `await notifyClientTelegram(TELEGRAM_BOT_TOKEN, user, { type: "promo_10", ... })`.
 
 3. Для маркетинга пользователь должен иметь `notify_preferences.marketing === true`.
+
+## Админ: новая регистрация клиента
+
+При **первом** успешном `POST /api/auth/telegram` (создание записи в `data.json`) в чаты из **`TELEGRAM_ADMIN_CHAT_IDS`** (тот же список, что для сводок по заказам в `adminOrderDigest.js`) уходит короткое HTML-сообщение: имя, `@username`, `public_id`, telegram id, блок «по рефералу» (имя и идентификатор пригласившего из `referred_by_name` / `referred_by`) или «без реферала».
+
+Реализация: `backend/src/adminNotifyRegistration.js` → `notifyAdminsNewClient`. Без токена бота или без списка чатов уведомления не отправляются.
