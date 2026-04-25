@@ -3,7 +3,7 @@ import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, Users, Package, TrendingUp, Wallet } from 'lucide-react';
+import { ClipboardList, Users, Package, TrendingUp, Wallet, Sparkles } from 'lucide-react';
 import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDisplay';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { getStatusLabel } from '@/lib/i18n';
@@ -24,13 +24,24 @@ export default function AdminDashboard() {
 
   const recentOrders = useMemo(() => {
     const arr = [...orders];
-    arr.sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
+    arr.sort(
+      (a, b) =>
+        +new Date(b.created_date || 0) - +new Date(a.created_date || 0)
+    );
     return arr.slice(0, 10);
   }, [orders]);
 
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
   const totalRevenue = orders.reduce((sum, o) => sum + orderPriceRub(o), 0);
   const totalProfit = orders.reduce((sum, o) => sum + orderProfitRub(o), 0);
+
+  const totalActiveClientBonuses = useMemo(
+    () =>
+      clients
+        .filter((c) => c.role !== 'admin')
+        .reduce((sum, c) => sum + Math.max(0, Number(c.bonus_balance) || 0), 0),
+    [clients]
+  );
 
   const stats = [
     { icon: ClipboardList, label: 'Заказы', value: orders.length },
@@ -42,6 +53,33 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-4">
+      <GlassCard className="border-amber-500/15 bg-amber-500/[0.06] py-3 px-3.5">
+        {loading ? (
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
+            <div className="space-y-2 flex-1 min-w-0">
+              <Skeleton className="h-3 w-40 max-w-full" />
+              <Skeleton className="h-7 w-28" />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/12 text-amber-500/90">
+              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Активные баллы клиентов
+              </p>
+              <p className="text-xl font-light tabular-nums tracking-tight text-foreground">
+                {totalActiveClientBonuses.toLocaleString('ru-RU')}
+                <span className="text-sm font-normal text-muted-foreground ml-1">баллов</span>
+              </p>
+            </div>
+          </div>
+        )}
+      </GlassCard>
+
       <div className="grid grid-cols-2 gap-2">
         {loading
           ? [1, 2, 3, 4, 5].map((i) => (
@@ -62,7 +100,7 @@ export default function AdminDashboard() {
             ))}
       </div>
 
-      <GlassCard>
+      <GlassCard className="p-5">
         <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Последние заказы</h3>
         {loading ? (
           <div className="space-y-3">
