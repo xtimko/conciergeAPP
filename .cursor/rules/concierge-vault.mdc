@@ -1,0 +1,24 @@
+---
+description: Obsidian vault conciergeAPP — в начале сессии читать vault index и приоритеты; по команде «сохрани сессию» писать sessions, обновлять приоритеты, decisions/debugging, index.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Concierge knowledge vault
+
+Путь: `concierge-vault/`.
+
+## При старте сессии (релевантно задаче про продукт или vault)
+
+1. Прочитать `concierge-vault/00-home/index.md` и `concierge-vault/00-home/Текущие приоритеты.md`.
+2. Если задача касается модуля — прочитать заметку из `concierge-vault/knowledge/` (или `atlas/`).
+
+Детали: `concierge-vault/00-home/Протокол сессии для агента и vault.md`.
+
+## Когда пользователь пишет «сохрани сессию»
+
+1. Создать заметку в `concierge-vault/sessions/` с датой в имени.
+2. Обновить `concierge-vault/00-home/Текущие приоритеты.md`.
+3. При новом решении — заметка в `concierge-vault/knowledge/decisions/`.
+4. При разобранном баге — заметка в `concierge-vault/knowledge/debugging/`.
+5. При новых постоянных заметках — обновить `concierge-vault/00-home/index.md`.

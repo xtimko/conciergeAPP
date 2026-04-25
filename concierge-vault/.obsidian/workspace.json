@@ -1,0 +1,225 @@
+{
+  "main": {
+    "id": "23258644c460f7d6",
+    "type": "split",
+    "children": [
+      {
+        "id": "1a4464df2c429c15",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "350bbb9a853f28e1",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "knowledge/business/Консьерж это Telegram-first сервис заказов для клиентов.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Консьерж это Telegram-first сервис заказов для клиентов"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "80ff3fd2f029e746",
+    "type": "split",
+    "children": [
+      {
+        "id": "aababc031803e4bb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9ea2ccbcbb994735",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Файловый менеджер"
+            }
+          },
+          {
+            "id": "8763d7966dc60876",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Поиск"
+            }
+          },
+          {
+            "id": "07b4e346d74a2160",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Закладки"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "6e51d103f46a565c",
+    "type": "split",
+    "children": [
+      {
+        "id": "9ab2a092f6651c01",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "8db04ceec0020efb",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "knowledge/business/Консьерж это Telegram-first сервис заказов для клиентов.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Обратные ссылки для Консьерж это Telegram-first сервис заказов для клиентов"
+            }
+          },
+          {
+            "id": "1feccd860701330e",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "knowledge/business/Консьерж это Telegram-first сервис заказов для клиентов.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Исходящие ссылки из Консьерж это Telegram-first сервис заказов для клиентов"
+            }
+          },
+          {
+            "id": "baf568f891ff155d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Теги"
+            }
+          },
+          {
+            "id": "f94c1264be564f89",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Все свойства"
+            }
+          },
+          {
+            "id": "fb34838ee747d795",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "knowledge/business/Консьерж это Telegram-first сервис заказов для клиентов.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Структура Консьерж это Telegram-first сервис заказов для клиентов"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Меню быстрого перехода": false,
+      "graph:Граф": false,
+      "canvas:Создать новый холст": false,
+      "daily-notes:Сегодняшняя заметка": false,
+      "templates:Вставить шаблон": false,
+      "command-palette:Открыть палитру команд": false,
+      "bases:Создать новую базу": false
+    }
+  },
+  "active": "350bbb9a853f28e1",
+  "lastOpenFiles": [
+    "00-home/Протокол сессии для агента и vault.md",
+    "knowledge/business/Админка считает выручку и себестоимость в рублях.md",
+    "atlas/Прод деплоится через GitHub Actions на VPS.md",
+    "atlas/Сборка фронта выполняется Vite с алиасом @.md",
+    "atlas/Стек и границы системы зафиксированы в atlas.md",
+    "atlas/Приложение построено как SPA плюс Express API.md",
+    "atlas/Бэкенд Express хранит состояние в data json рядом с кодом.md",
+    "knowledge/patterns/React Query использует queryKey me для профиля.md",
+    "knowledge/patterns/Маршруты клиента и админки разведены по роли admin.md",
+    "Добро пожаловать.md",
+    "knowledge/integrations/Stripe SDK подключён в зависимостях фронта.md",
+    "inbox/Inbox неразобранные задачи лежат здесь.md",
+    "inbox",
+    "sessions/2026-04-06 Развёрнута база знаний Obsidian в репозитории.md",
+    "sessions",
+    "knowledge/business/Консьерж это Telegram-first сервис заказов для клиентов.md",
+    "knowledge/patterns/Публичные ID клиентов CLI и заказов CON генерируются в db js.md",
+    "knowledge/business",
+    "knowledge/patterns/Клиентский модуль api централизует fetch и сортировки списков.md",
+    "knowledge/patterns",
+    "knowledge/integrations/Админская сводка по заказам крутится в фоне server js.md",
+    "knowledge/debugging/Команды на сервере нужно запускать из каталога репозитория.md",
+    "knowledge/debugging/git commit без изменений не запускает push и деплой.md",
+    "knowledge/debugging/GitHub Actions требует SSH ключ а не пароль сервера.md",
+    "knowledge/debugging",
+    "knowledge/integrations/Реферальные ссылки используют токены CON и start param ref.md",
+    "knowledge/decisions/Роль админа сверяется с data json при каждом запросе.md",
+    "knowledge/decisions/Отказ от Base44 оставил единый клиент api в src.md",
+    "knowledge/decisions/Заказ по умолчанию создаётся в статусе confirmed.md",
+    "knowledge/decisions",
+    "atlas/MySQL описан как опциональная миграция из JSON.md",
+    "knowledge/integrations/Telegram Bot шлёт клиентам статусы заказов по notify_preferences.md",
+    "knowledge/integrations",
+    "knowledge",
+    "atlas",
+    "00-home"
+  ]
+}
