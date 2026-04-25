@@ -28,11 +28,12 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !github.event.repository.fork }}
     steps:
-      - uses: actions/checkout@v4
+      # v6 / Node 24 — см. deprecation Node 20 у checkout/setup-node на раннере GitHub
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies and build
