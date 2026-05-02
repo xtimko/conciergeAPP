@@ -45,6 +45,13 @@ const ORDER_CREATE_IDEM_TTL_MS = Math.max(
 );
 const orderCreateIdem = new Map();
 
+/** data:image… из буфера раздувает JSON; nginx часто режет тело (~1 MB) → 502. Обычный https URL — короткий. */
+const MAX_ORDER_IMAGE_URL_LENGTH = 120_000;
+
+function orderImageUrlTooLong(url) {
+  return url != null && String(url).length > MAX_ORDER_IMAGE_URL_LENGTH;
+}
+
 function sweepOrderCreateIdem() {
   const now = Date.now();
   for (const [k, v] of orderCreateIdem) {
@@ -546,6 +553,12 @@ function revertOrderBonusesIfApplied(db, order) {
 app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   const db = readDb();
   const body = req.body || {};
+  if (orderImageUrlTooLong(body.image_url)) {
+    return res.status(400).json({
+      message:
+        "Поле «URL изображения» слишком длинное. Укажите прямую ссылку https:// на файл в интернете, не вставляйте картинку из буфера (data:image/… — это сотни КБ и запрос не проходит через прокси)."
+    });
+  }
   const idemKey = String(body.idempotency_key || "").trim().slice(0, 200);
   if (idemKey) {
     const prev = getIdempotentCreatedOrder(idemKey);
@@ -587,12 +600,19 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   db.orders.push(order);
   applyOrderBonusesIfNeeded(db, order);
   writeDb(db);
-  if (TELEGRAM_BOT_TOKEN && (order.client_email || order.client_telegram_id)) {
-    notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, order, "created");
-  }
-  void notifyReferrerFriendOrdered(TELEGRAM_BOT_TOKEN, db, order).catch((err) =>
-    console.warn("[orders] notifyReferrerFriendOrdered:", err?.message || err)
-  );
+  const orderSnap = { ...order };
+  setImmediate(() => {
+    try {
+      if (TELEGRAM_BOT_TOKEN && (orderSnap.client_email || orderSnap.client_telegram_id)) {
+        notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, readDb(), orderSnap, "created");
+      }
+    } catch (e) {
+      console.warn("[orders] notifyOrderInTelegramChat (created):", e?.message || e);
+    }
+    void notifyReferrerFriendOrdered(TELEGRAM_BOT_TOKEN, readDb(), orderSnap).catch((err) =>
+      console.warn("[orders] notifyReferrerFriendOrdered:", err?.message || err)
+    );
+  });
   if (idemKey) rememberIdempotentCreatedOrder(idemKey, order);
   res.status(201).json(order);
 });
@@ -603,6 +623,12 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   if (idx < 0) return res.status(404).json({ message: "Order not found" });
   const before = db.orders[idx];
   const body = { ...(req.body || {}) };
+  if (body.image_url !== undefined && orderImageUrlTooLong(body.image_url)) {
+    return res.status(400).json({
+      message:
+        "Поле «URL изображения» слишком длинное. Укажите прямую ссылку https:// на файл, не вставляйте картинку из буфера (data:image/…)."
+    });
+  }
   delete body.bonuses_applied;
   if (body.client_bonus_mode !== undefined) {
     body.client_bonus_mode = body.client_bonus_mode === "subtract" ? "subtract" : "add";
@@ -641,12 +667,20 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
     (after.client_email || after.client_telegram_id)
   ) {
     console.log(`[orders] отправляем Telegram-уведомление (status) для заказа ${after.id}`);
-    notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, after, "status");
-    if (before.status !== "delivered" && after.status === "delivered") {
-      void notifyReferrerDeliveryBonus(TELEGRAM_BOT_TOKEN, db, after).catch((err) =>
-        console.warn("[orders] notifyReferrerDeliveryBonus:", err?.message || err)
-      );
-    }
+    const afterSnap = { ...after };
+    const prevStatus = before.status;
+    setImmediate(() => {
+      try {
+        notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, readDb(), afterSnap, "status");
+        if (prevStatus !== "delivered" && afterSnap.status === "delivered") {
+          void notifyReferrerDeliveryBonus(TELEGRAM_BOT_TOKEN, readDb(), afterSnap).catch((err) =>
+            console.warn("[orders] notifyReferrerDeliveryBonus:", err?.message || err)
+          );
+        }
+      } catch (e) {
+        console.warn("[orders] PATCH notify:", e?.message || e);
+      }
+    });
   } else if (statusChanged) {
     if (!TELEGRAM_BOT_TOKEN) {
       console.warn("[orders] статус изменён, но TELEGRAM_BOT_TOKEN пуст — уведомление в Telegram не отправится.");

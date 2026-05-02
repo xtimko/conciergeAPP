@@ -5,6 +5,9 @@ export default function ImageUploadField({ value, onChange }) {
   return (
     <div className="col-span-2">
       <label className="text-xs">URL изображения</label>
+      <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+        Вставьте прямую ссылку https:// на файл (облако, CDN). Не вставляйте картинку из буфера — длинный data:image… ломает сохранение заказа.
+      </p>
       <div className="mt-1">
         <input
           value={value}
