@@ -23,17 +23,36 @@ function getTelegramProxyDispatcher() {
   return _telegramProxyDispatcher;
 }
 
-export async function sendTelegramMessage(botToken, chatId, text) {
+/** Inline-кнопка «Открыть Concierge» в full-screen (как Menu Button). Нужен TELEGRAM_BOT_USERNAME. */
+function buildOpenConciergeReplyMarkup() {
+  const u = String(process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "").trim();
+  if (!u) return null;
+  return {
+    inline_keyboard: [[{ text: "Открыть Concierge", url: `https://t.me/${u}?startapp` }]]
+  };
+}
+
+/**
+ * @param {{ reply_markup?: object, openMiniApp?: boolean }} [options]
+ *   openMiniApp — добавить кнопку «Открыть Concierge» (ссылка на Mini App в full-screen), если задан TELEGRAM_BOT_USERNAME.
+ */
+export async function sendTelegramMessage(botToken, chatId, text, options = {}) {
   if (!botToken || !chatId || !text) return;
   const id = String(chatId).trim();
   if (!id) return;
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  const body = JSON.stringify({
+  let replyMarkup = options.reply_markup;
+  if (!replyMarkup && options.openMiniApp) {
+    replyMarkup = buildOpenConciergeReplyMarkup();
+  }
+  const bodyObj = {
     chat_id: id,
     text: text.slice(0, 4000),
     parse_mode: "HTML",
-    disable_web_page_preview: true
-  });
+    disable_web_page_preview: true,
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  };
+  const body = JSON.stringify(bodyObj);
   const dispatcher = getTelegramProxyDispatcher();
   try {
     const ac = new AbortController();

@@ -1,5 +1,8 @@
 /**
  * Уведомления рефереру в Telegram (регистрация приглашённого, заказ друга, начисление после доставки).
+ *
+ * ВАЖНО: рефереру не показываем никаких деталей заказа друга
+ * (название, номер/oid, статус и т.п.). Только факт события и сумма баллов.
  */
 import { sendTelegramMessage } from "./telegramBotApi.js";
 import { escapeHtml } from "./notificationMessages.js";
@@ -46,7 +49,9 @@ export async function notifyReferrerInviteeRegistered(botToken, db, invitee) {
     "Мы напишем, когда друг оформит заказ."
   ].join("\n");
 
-  await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text);
+  await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text, {
+    openMiniApp: true
+  });
 }
 
 /**
@@ -67,14 +72,16 @@ export async function notifyReferrerFriendOrdered(botToken, db, order) {
 
   const bonusForReferrer = Math.round(refBonus);
   const text = [
-    "<b>Ваш друг оформил заказ!</b>",
+    "<b>Ваш друг сделал заказ!</b>",
     "",
     bonusForReferrer > 0
-      ? `<b>${bonusForReferrer}</b> баллов зачислим на Ваш счёт после доставки заказа.`
-      : "Баллы зачислим на Ваш счёт после доставки заказа."
+      ? `<b>${bonusForReferrer}</b> баллов зачислим на Ваш счёт после доставки.`
+      : "Баллы зачислим на Ваш счёт после доставки."
   ].join("\n");
 
-  await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text);
+  await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text, {
+    openMiniApp: true
+  });
 }
 
 /**
@@ -92,16 +99,15 @@ export async function notifyReferrerDeliveryBonus(botToken, db, order) {
   if (!referrer?.telegram_id) return;
   if (!wantsReferralNotifications(referrer)) return;
 
-  const oid = escapeHtml(order.id || "—");
   const n = Math.round(refBonus);
   const text = [
-    "<b>Заказ друга доставлен</b>",
+    "<b>Баллы зачислены!</b>",
     "",
-    `<code>${oid}</code>`,
-    "",
-    `На Ваш счёт зачислено <b>${n}</b> баллов за этот заказ.`,
+    `На Ваш счёт зачислено <b>${n}</b> баллов за заказ Вашего друга.`,
     "Спасибо, что делитесь Concierge с друзьями."
   ].join("\n");
 
-  await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text);
+  await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text, {
+    openMiniApp: true
+  });
 }
