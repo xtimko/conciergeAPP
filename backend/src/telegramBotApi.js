@@ -2,7 +2,7 @@
  * Низкоуровневый вызов Telegram Bot API (sendMessage).
  * Прокси: TELEGRAM_PROXY в .env (undici ProxyAgent).
  */
-import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { fetch as undiciFetch, ProxyAgent, FormData, Blob } from "undici";
 
 let _telegramProxyDispatcher = null;
 let _telegramProxyForUrl = "";
@@ -21,6 +21,123 @@ function getTelegramProxyDispatcher() {
   _telegramProxyDispatcher = new ProxyAgent(proxyUrl);
   console.log("[telegramBotApi] запросы к api.telegram.org через TELEGRAM_PROXY (undici)");
   return _telegramProxyDispatcher;
+}
+
+const MAX_TELEGRAM_PHOTO_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Скачать картинку с этого сервера: сначала через TELEGRAM_PROXY (часто CDN из РФ), затем напрямую.
+ * @returns {Promise<{ buffer: Buffer, contentType: string } | null>}
+ */
+async function fetchImageForTelegramUpload(imageUrl, maxBytes = MAX_TELEGRAM_PHOTO_BYTES) {
+  const raw = String(imageUrl || "").trim();
+  if (!/^https?:\/\//i.test(raw) || raw.startsWith("data:")) return null;
+
+  const attempts = [];
+  const dispatcher = getTelegramProxyDispatcher();
+  if (dispatcher) attempts.push({ dispatcher, label: "proxy" });
+  attempts.push({ dispatcher: null, label: "direct" });
+
+  for (const { dispatcher: d, label } of attempts) {
+    try {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 45_000);
+      const res = await undiciFetch(raw, {
+        method: "GET",
+        redirect: "follow",
+        signal: ac.signal,
+        headers: {
+          Accept: "image/*,*/*;q=0.8",
+          "User-Agent": "ConciergeBackend/1.0"
+        },
+        ...(d ? { dispatcher: d } : {})
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        console.warn(`[telegramBotApi] fetch image (${label}): HTTP ${res.status}`);
+        continue;
+      }
+      const len = res.headers.get("content-length");
+      if (len && Number(len) > maxBytes) {
+        console.warn("[telegramBotApi] fetch image: Content-Length too large");
+        continue;
+      }
+      const ab = await res.arrayBuffer();
+      const buf = Buffer.from(ab);
+      if (buf.length > maxBytes || buf.length === 0) continue;
+      let ct = (res.headers.get("content-type") || "").split(";")[0].trim();
+      if (!/^image\//i.test(ct)) {
+        if (buf[0] === 0xff && buf[1] === 0xd8) ct = "image/jpeg";
+        else if (buf[0] === 0x89 && buf[1] === 0x50) ct = "image/png";
+        else if (buf[0] === 0x47 && buf[1] === 0x49) ct = "image/gif";
+        else if (buf.length >= 12 && buf[0] === 0x52 && buf[1] === 0x49) ct = "image/webp";
+        else ct = "image/jpeg";
+      }
+      return { buffer: buf, contentType: ct };
+    } catch (e) {
+      console.warn(`[telegramBotApi] fetch image (${label}):`, e?.message || e);
+    }
+  }
+  return null;
+}
+
+function guessPhotoFilenameFromUrl(imageUrl, contentType) {
+  try {
+    const path = new URL(imageUrl).pathname.split("/").pop() || "";
+    if (/\.(jpe?g|png|gif|webp)$/i.test(path)) return path.slice(0, 128);
+  } catch {
+    /* ignore */
+  }
+  const ct = String(contentType || "");
+  if (/png/i.test(ct)) return "photo.png";
+  if (/gif/i.test(ct)) return "photo.gif";
+  if (/webp/i.test(ct)) return "photo.webp";
+  return "photo.jpg";
+}
+
+/**
+ * sendPhoto с телом файла, если по URL Telegram скачать не может.
+ * @returns {Promise<number|null>}
+ */
+async function sendTelegramPhotoMultipart(botToken, chatId, buffer, filename, caption, replyMarkup) {
+  if (!botToken || !chatId || !buffer?.length) return null;
+  const id = String(chatId).trim();
+  if (!id) return null;
+  const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+  const dispatcher = getTelegramProxyDispatcher();
+  const form = new FormData();
+  form.set("chat_id", id);
+  const cap = String(caption || "").slice(0, 1024);
+  if (cap) form.set("caption", cap);
+  form.set("parse_mode", "HTML");
+  if (replyMarkup) form.set("reply_markup", JSON.stringify(replyMarkup));
+  form.append("photo", new Blob([buffer]), filename);
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 120_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      body: form,
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn(
+        "[telegramBotApi] sendPhoto multipart failed:",
+        res.status,
+        data?.error_code,
+        data?.description || JSON.stringify(data)
+      );
+      return null;
+    }
+    console.log("[telegramBotApi] фото отправлено multipart (chat_id:", id + ")");
+    return data.result?.message_id ?? null;
+  } catch (e) {
+    console.warn("[telegramBotApi] sendPhoto multipart error:", e?.message || e);
+    return null;
+  }
 }
 
 /** Inline-кнопка «Открыть Concierge» в full-screen (как Menu Button). Нужен TELEGRAM_BOT_USERNAME. */
@@ -318,10 +435,10 @@ export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, 
 }
 
 /**
- * Фото в чат (URL должен быть доступен серверам Telegram — https/http).
- * Не подходит: data:image/... (отправь только текст или храни файл по публичному URL).
- */
-/**
+ * Фото в чат: сначала sendPhoto по URL (его качают серверы Telegram).
+ * Если не выходит — скачиваем файл здесь (в т.ч. через TELEGRAM_PROXY к CDN) и шлём multipart.
+ * Не подходит: data:image/...
+ *
  * @param {{ reply_markup?: object, openMiniApp?: boolean }} [options]
  * @returns {Promise<number|null>} message_id или null
  */
@@ -338,7 +455,7 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption, opt
     replyMarkup = buildOpenConciergeReplyMarkup();
   }
   const cap = String(caption || "").slice(0, 1024);
-  const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+  const apiUrl = `https://api.telegram.org/bot${botToken}/sendPhoto`;
   const body = JSON.stringify({
     chat_id: id,
     photo: raw,
@@ -351,7 +468,7 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption, opt
   try {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 60_000);
-    const res = await undiciFetch(url, {
+    const res = await undiciFetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
@@ -360,19 +477,26 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption, opt
     });
     clearTimeout(timer);
     const data = await res.json().catch(() => ({}));
-    if (!data?.ok) {
-      console.warn(
-        "[telegramBotApi] sendPhoto failed:",
-        res.status,
-        data?.error_code,
-        data?.description || JSON.stringify(data)
-      );
-      return null;
+    if (data?.ok) {
+      console.log("[telegramBotApi] фото отправлено по URL (chat_id:", id + ")");
+      return data.result?.message_id ?? null;
     }
-    console.log("[telegramBotApi] фото отправлено (chat_id:", id + ")");
-    return data.result?.message_id ?? null;
+    console.warn(
+      "[telegramBotApi] sendPhoto URL failed:",
+      res.status,
+      data?.error_code,
+      data?.description || JSON.stringify(data),
+      "— пробуем multipart"
+    );
   } catch (e) {
-    console.warn("[telegramBotApi] sendPhoto error:", e?.message || e);
+    console.warn("[telegramBotApi] sendPhoto URL error:", e?.message || e, "— пробуем multipart");
+  }
+
+  const fetched = await fetchImageForTelegramUpload(raw);
+  if (!fetched) {
+    console.warn("[telegramBotApi] sendPhoto: multipart пропущен (не удалось скачать изображение)");
     return null;
   }
+  const filename = guessPhotoFilenameFromUrl(raw, fetched.contentType);
+  return sendTelegramPhotoMultipart(botToken, id, fetched.buffer, filename, cap, replyMarkup);
 }
