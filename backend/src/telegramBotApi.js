@@ -2,7 +2,8 @@
  * Низкоуровневый вызов Telegram Bot API (sendMessage).
  * Прокси: TELEGRAM_PROXY в .env (undici ProxyAgent).
  */
-import { fetch as undiciFetch, ProxyAgent, FormData, Blob } from "undici";
+import { Blob } from "node:buffer";
+import { fetch as undiciFetch, ProxyAgent, FormData } from "undici";
 
 let _telegramProxyDispatcher = null;
 let _telegramProxyForUrl = "";
