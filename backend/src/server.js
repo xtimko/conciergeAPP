@@ -35,6 +35,21 @@ const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || process.env.FRONTEND
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_BOT_USERNAME = String(process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
 const TELEGRAM_WEBHOOK_SECRET = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
+/** Публичный HTTPS URL картинки для welcome (/start).
+ *  Если переменная не задана, по умолчанию используется `${PUBLIC_APP_URL}/welcome.png`
+ *  (картинка лежит во фронте `public/welcome.png` и деплоится с `dist/`).
+ *  Чтобы выключить фото — задайте `WELCOME_PHOTO_URL=none` в .env.
+ */
+const WELCOME_PHOTO_URL = (() => {
+  const explicit = String(
+    process.env.WELCOME_PHOTO_URL || process.env.TELEGRAM_WELCOME_PHOTO_URL || ""
+  ).trim();
+  if (explicit) return explicit.toLowerCase() === "none" ? "" : explicit;
+  if (PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL)) {
+    return `${PUBLIC_APP_URL}/welcome.png`;
+  }
+  return "";
+})();
 const ALLOW_DEV_TELEGRAM_LOGIN = process.env.ALLOW_DEV_TELEGRAM_LOGIN === "true";
 
 const REF_START_PREFIX = "ref_";
@@ -720,10 +735,13 @@ function handleTelegramStartUpdate(message) {
 
     if (TELEGRAM_BOT_TOKEN) {
       const welcomeHtml =
-        "<b>Concierge</b>\n\n" +
-        "Откройте приложение по кнопке — оформление заказов и баллы.\n\n" +
-        "Реферальная ссылка в разделе «Рефералы»: баллы за доставленные заказы друзей.\n\n" +
-        "👇";
+        "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
+        "Выкупим, найдем и доставим любой товар под любой случай.\n\n" +
+        "<b>Внутри приложения:</b>\n" +
+        "• личный кабинет клиента\n" +
+        "• отслеживание заказов\n" +
+        "• реферальная программа: баллы за друзей\n\n" +
+        "Откройте приложение, чтобы начать ⬇️";
       const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
       if (TELEGRAM_BOT_USERNAME || appUrl) {
         sendTelegramWelcomeWithWebApp(
@@ -731,7 +749,10 @@ function handleTelegramStartUpdate(message) {
           msg.chat.id,
           welcomeHtml,
           appUrl,
-          { botUsername: TELEGRAM_BOT_USERNAME }
+          {
+            botUsername: TELEGRAM_BOT_USERNAME,
+            photoUrl: WELCOME_PHOTO_URL
+          }
         );
       } else {
         console.warn(

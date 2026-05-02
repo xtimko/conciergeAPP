@@ -74,6 +74,9 @@ export async function sendTelegramMessage(botToken, chatId, text) {
  * options.botUsername — если задан, используется inline-ссылка
  *   `https://t.me/<botUsername>?startapp`, что открывает Mini App в full-screen
  *   режиме (как Menu Button), а не в half-screen (как inline web_app).
+ * options.photoUrl — публичный HTTPS URL картинки. Если задан, шлём sendPhoto
+ *   с caption + reply_markup (одно сообщение-карточка). Caption имеет лимит
+ *   1024 символа — Telegram обрезает длинные тексты.
  */
 export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, webAppUrl, options = {}) {
   if (!botToken || !chatId) return;
@@ -82,6 +85,7 @@ export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, 
 
   const botUsername = String(options?.botUsername || "").replace(/^@/, "").trim();
   const url = String(webAppUrl || "").trim().replace(/\/$/, "");
+  const photoUrl = String(options?.photoUrl || "").trim();
 
   let button = null;
   if (botUsername) {
@@ -95,30 +99,72 @@ export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, 
     return;
   }
 
-  const body = JSON.stringify({
-    chat_id: id,
-    text: String(textHtml || "").slice(0, 4000),
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-    reply_markup: {
-      inline_keyboard: [[button]]
-    }
-  });
+  const replyMarkup = { inline_keyboard: [[button]] };
   const dispatcher = getTelegramProxyDispatcher();
+
+  const usePhoto = /^https?:\/\//i.test(photoUrl) && !photoUrl.startsWith("data:");
+
+  const apiUrl = usePhoto
+    ? `https://api.telegram.org/bot${botToken}/sendPhoto`
+    : `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+  const payload = usePhoto
+    ? {
+        chat_id: id,
+        photo: photoUrl,
+        caption: String(textHtml || "").slice(0, 1024),
+        parse_mode: "HTML",
+        reply_markup: replyMarkup
+      }
+    : {
+        chat_id: id,
+        text: String(textHtml || "").slice(0, 4000),
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+        reply_markup: replyMarkup
+      };
+
   try {
     const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 45_000);
-    const res = await undiciFetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    const timer = setTimeout(() => ac.abort(), 60_000);
+    const res = await undiciFetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body,
+      body: JSON.stringify(payload),
       signal: ac.signal,
       ...(dispatcher ? { dispatcher } : {})
     });
     clearTimeout(timer);
     const data = await res.json().catch(() => ({}));
     if (!data?.ok) {
-      console.warn("[telegramBotApi] welcome WebApp failed:", data?.description || res.status);
+      console.warn(
+        "[telegramBotApi] welcome WebApp failed:",
+        usePhoto ? "sendPhoto" : "sendMessage",
+        data?.description || res.status
+      );
+      if (usePhoto) {
+        const fallbackBody = JSON.stringify({
+          chat_id: id,
+          text: String(textHtml || "").slice(0, 4000),
+          parse_mode: "HTML",
+          disable_web_page_preview: true,
+          reply_markup: replyMarkup
+        });
+        const ac2 = new AbortController();
+        const t2 = setTimeout(() => ac2.abort(), 45_000);
+        const res2 = await undiciFetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: fallbackBody,
+          signal: ac2.signal,
+          ...(dispatcher ? { dispatcher } : {})
+        });
+        clearTimeout(t2);
+        const data2 = await res2.json().catch(() => ({}));
+        if (!data2?.ok) {
+          console.warn("[telegramBotApi] welcome WebApp text fallback failed:", data2?.description || res2.status);
+        }
+      }
     }
   } catch (e) {
     console.warn("[telegramBotApi] welcome WebApp error:", e?.message || e);
