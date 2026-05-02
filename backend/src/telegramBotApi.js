@@ -180,6 +180,41 @@ export async function editTelegramMessageCaption(botToken, chatId, messageId, ca
 }
 
 /**
+ * Удалить сообщение бота в чате (например перед отправкой нового статуса — тогда клиент получит push).
+ * @returns {Promise<boolean>}
+ */
+export async function deleteTelegramMessage(botToken, chatId, messageId) {
+  if (!botToken || !chatId || messageId == null) return false;
+  const id = String(chatId).trim();
+  const mid = Number(messageId);
+  if (!id || !Number.isFinite(mid)) return false;
+  const url = `https://api.telegram.org/bot${botToken}/deleteMessage`;
+  const payload = { chat_id: id, message_id: mid };
+  const dispatcher = getTelegramProxyDispatcher();
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 45_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn("[telegramBotApi] deleteMessage failed:", data?.description || res.status);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn("[telegramBotApi] deleteMessage error:", e?.message || e);
+    return false;
+  }
+}
+
+/**
  * Приветствие после /start: текст + кнопка открытия Mini App.
  * webAppUrl — публичный HTTPS URL фронта (как в BotFather для Web App).
  * options.botUsername — если задан, используется inline-ссылка

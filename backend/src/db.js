@@ -13,7 +13,7 @@ const initialData = {
   users: [],
   orders: [],
   pending_referrals: {},
-  /** Сообщение в Telegram по заказу (одна «карточка», редактируется при смене статуса): order_id → { chat_id, message_id, is_photo } */
+  /** Последнее сообщение бота по заказу (перед новым статусом удаляем и шлём заново — клиент получает уведомление): order_id → { chat_id, message_id, is_photo } */
   telegram_order_status_msg: {}
 };
 

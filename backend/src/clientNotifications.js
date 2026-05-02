@@ -3,29 +3,17 @@
  *
  * Сейчас бот шлёт только: оформление заказа и смену статуса (канал orders).
  */
-import {
-  sendTelegramMessage,
-  sendTelegramPhoto,
-  editTelegramMessageText,
-  editTelegramMessageCaption
-} from "./telegramBotApi.js";
+import { sendTelegramMessage, sendTelegramPhoto, deleteTelegramMessage } from "./telegramBotApi.js";
 import { formatOrderCreatedNotificationRu, formatOrderStatusMessageRu } from "./notificationMessages.js";
 import { readDb, writeDb } from "./db.js";
 
-/** В data.json: привязка заказа к одному сообщению в Telegram (редактируется при смене статуса). */
+/** В data.json: последнее сообщение бота по заказу (перед обновлением статуса удаляем — новое сообщение даёт push). */
 const ORDER_TG_MSG_KEY = "telegram_order_status_msg";
 
 function ensureOrderMsgStore(db) {
   if (!db[ORDER_TG_MSG_KEY] || typeof db[ORDER_TG_MSG_KEY] !== "object") {
     db[ORDER_TG_MSG_KEY] = {};
   }
-}
-
-/** Подпись к фото в Telegram ≤ 1024 символов */
-function sliceTelegramCaption(html) {
-  const s = String(html || "");
-  if (s.length <= 1024) return s;
-  return `${s.slice(0, 1020)}…`;
 }
 
 /** Значения по умолчанию для новых и существующих пользователей */
@@ -172,28 +160,7 @@ export async function notifyClientTelegram(botToken, user, payload) {
     ensureOrderMsgStore(db);
     const existing = db[ORDER_TG_MSG_KEY][oid];
     if (existing?.message_id != null && existing?.chat_id) {
-      const edited = existing.is_photo
-        ? await editTelegramMessageCaption(
-            botToken,
-            existing.chat_id,
-            existing.message_id,
-            sliceTelegramCaption(text),
-            msgOpts
-          )
-        : await editTelegramMessageText(
-            botToken,
-            existing.chat_id,
-            existing.message_id,
-            text,
-            msgOpts
-          );
-      if (edited) return;
-      delete db[ORDER_TG_MSG_KEY][oid];
-      writeDb(db);
-      console.warn(
-        "[clientNotifications] правка сообщения не удалась — шлём новое (order_id:",
-        oid + ")"
-      );
+      await deleteTelegramMessage(botToken, existing.chat_id, existing.message_id);
     }
   }
 
