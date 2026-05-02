@@ -43,6 +43,16 @@ export default function AdminDashboard() {
     [clients]
   );
 
+  /** Сумма баллов, которые ещё не отражены в bonus_balance: активные неотменённые заказы без применённых бонусов. */
+  const bonusReserveInFlight = useMemo(() => {
+    let sum = 0;
+    for (const o of orders) {
+      if (o.bonuses_applied || o.status === 'delivered' || o.status === 'cancelled') continue;
+      sum += Number(o.referrer_bonus || 0) + Number(o.referral_bonus || 0);
+    }
+    return Math.round(sum);
+  }, [orders]);
+
   const stats = [
     { icon: ClipboardList, label: 'Заказы', value: orders.length },
     { icon: Package, label: 'Активные', value: activeOrders.length },
@@ -51,8 +61,10 @@ export default function AdminDashboard() {
     { icon: Wallet, label: 'Прибыль', value: `${totalProfit.toLocaleString('ru-RU')} ₽` },
     {
       icon: Sparkles,
-      label: 'Баллы клиентов',
+      label: 'На счетах (клиенты)',
       value: totalActiveClientBonuses.toLocaleString('ru-RU'),
+      subLabel: 'Резерв по активным заказам',
+      subValue: bonusReserveInFlight.toLocaleString('ru-RU'),
     },
   ];
 
@@ -74,6 +86,14 @@ export default function AdminDashboard() {
                 <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5 leading-tight">
                   {stat.label}
                 </p>
+                {stat.subValue != null ? (
+                  <>
+                    <p className="text-sm font-light tabular-nums leading-tight mt-2">{stat.subValue}</p>
+                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5 leading-tight">
+                      {stat.subLabel}
+                    </p>
+                  </>
+                ) : null}
               </GlassCard>
             ))}
       </div>

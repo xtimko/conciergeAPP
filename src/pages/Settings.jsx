@@ -13,6 +13,7 @@ const defaultNotifyPrefs = () => ({
   orders: true,
   marketing: false,
   system: true,
+  referrals: true,
 });
 
 export default function Settings() {
@@ -125,6 +126,13 @@ export default function Settings() {
             <Switch
               checked={prefs.system}
               onCheckedChange={(v) => setNotifyKey('system', v)}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-light">{t('notifyReferrals', lang)}</span>
+            <Switch
+              checked={prefs.referrals !== false}
+              onCheckedChange={(v) => setNotifyKey('referrals', v)}
             />
           </div>
         </div>

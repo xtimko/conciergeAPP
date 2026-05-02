@@ -57,8 +57,8 @@ export default function Home() {
         rel="noopener noreferrer"
         className={cn(
           'relative glass glass-hover rounded-[1.35rem] overflow-hidden',
-          'flex items-center justify-center gap-2 mx-auto max-w-sm w-full p-4',
-          'text-xs font-medium tracking-wide text-foreground',
+          'inline-flex items-center justify-center gap-2 mx-auto w-auto max-w-[90vw] px-5 py-4',
+          'text-xs font-medium tracking-wide text-foreground text-center',
           'cursor-pointer active:scale-[0.98] transition-transform',
           'motion-reduce:transition-none motion-reduce:active:scale-100',
         )}

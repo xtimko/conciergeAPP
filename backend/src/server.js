@@ -19,6 +19,11 @@ import { mergeNotifyPreferences } from "./clientNotifications.js";
 import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
 import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
 import { notifyAdminsNewClient } from "./adminNotifyRegistration.js";
+import {
+  notifyReferrerDeliveryBonus,
+  notifyReferrerFriendOrdered,
+  notifyReferrerInviteeRegistered
+} from "./referralNotifications.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -250,9 +255,6 @@ app.post("/api/auth/telegram", (req, res) => {
       applyReferralToNewUser(db, user, refId);
       db.users.push(user);
       writeDb(db);
-      void notifyAdminsNewClient(TELEGRAM_BOT_TOKEN, user).catch((err) =>
-        console.warn("[auth/telegram] notifyAdminsNewClient:", err?.message || err)
-      );
       console.log(
         "[auth/telegram] created user telegram_id=",
         telegramUser.id,
@@ -422,7 +424,14 @@ app.post("/api/users/complete-onboarding", authRequired, (req, res) => {
     updated_date: nowIso()
   };
   writeDb(db);
-  res.json(db.users[idx]);
+  const completed = db.users[idx];
+  void notifyAdminsNewClient(TELEGRAM_BOT_TOKEN, db, completed).catch((err) =>
+    console.warn("[complete-onboarding] notifyAdminsNewClient:", err?.message || err)
+  );
+  void notifyReferrerInviteeRegistered(TELEGRAM_BOT_TOKEN, db, completed).catch((err) =>
+    console.warn("[complete-onboarding] notifyReferrerInviteeRegistered:", err?.message || err)
+  );
+  res.json(completed);
 });
 
 const ADDRESS_FIELDS = new Set([
@@ -580,6 +589,9 @@ app.post("/api/orders", authRequired, adminRequired, (req, res) => {
   if (TELEGRAM_BOT_TOKEN && (order.client_email || order.client_telegram_id)) {
     notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, order, "created");
   }
+  void notifyReferrerFriendOrdered(TELEGRAM_BOT_TOKEN, db, order).catch((err) =>
+    console.warn("[orders] notifyReferrerFriendOrdered:", err?.message || err)
+  );
   if (idemKey) rememberIdempotentCreatedOrder(idemKey, order);
   res.status(201).json(order);
 });
@@ -629,6 +641,11 @@ app.patch("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   ) {
     console.log(`[orders] отправляем Telegram-уведомление (status) для заказа ${after.id}`);
     notifyOrderInTelegramChat(TELEGRAM_BOT_TOKEN, db, after, "status");
+    if (before.status !== "delivered" && after.status === "delivered") {
+      void notifyReferrerDeliveryBonus(TELEGRAM_BOT_TOKEN, db, after).catch((err) =>
+        console.warn("[orders] notifyReferrerDeliveryBonus:", err?.message || err)
+      );
+    }
   } else if (statusChanged) {
     if (!TELEGRAM_BOT_TOKEN) {
       console.warn("[orders] статус изменён, но TELEGRAM_BOT_TOKEN пуст — уведомление в Telegram не отправится.");
@@ -716,10 +733,9 @@ app.post("/api/telegram/webhook", (req, res) => {
     if (TELEGRAM_BOT_TOKEN) {
       const welcomeHtml =
         "<b>Concierge</b>\n\n" +
-        "Зайдите в приложение, чтобы пройти регистрацию и оформлять заказы.\n\n" +
-        "Поделитесь <b>реферальной ссылкой</b> из раздела «Рефералы» в Mini App — " +
-        "за каждый <b>доставленный</b> заказ приглашённого друга вам начисляются баллы.\n\n" +
-        "Нажмите кнопку ниже 👇";
+        "Откройте приложение по кнопке — оформление заказов и баллы.\n\n" +
+        "Реферальная ссылка в разделе «Рефералы»: баллы за доставленные заказы друзей.\n\n" +
+        "👇";
       const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
       if (appUrl) {
         sendTelegramWelcomeWithWebApp(TELEGRAM_BOT_TOKEN, msg.chat.id, welcomeHtml, appUrl);
@@ -781,7 +797,10 @@ function migrateDbOnce() {
       changed = true;
     }
     if (u.notify_preferences === undefined) {
-      u.notify_preferences = { orders: true, marketing: false, system: true };
+      u.notify_preferences = { orders: true, marketing: false, system: true, referrals: true };
+      changed = true;
+    } else if (u.notify_preferences && typeof u.notify_preferences.referrals !== "boolean") {
+      u.notify_preferences = { ...u.notify_preferences, referrals: true };
       changed = true;
     }
     if (u.referred_by_name === undefined) {

@@ -151,7 +151,8 @@ export function createUserFromTelegram(telegramUser, db) {
     notify_preferences: {
       orders: true,
       marketing: false,
-      system: true
+      system: true,
+      referrals: true
     },
     bonus_balance: 500,
     language: "ru",

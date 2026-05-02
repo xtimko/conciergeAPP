@@ -10,11 +10,12 @@ import { formatOrderCreatedNotificationRu, formatOrderStatusMessageRu } from "./
 export const DEFAULT_NOTIFY_PREFERENCES = {
   orders: true,
   marketing: false,
-  system: true
+  system: true,
+  referrals: true
 };
 
 /** Каналы и человекочитаемые id (для API / настроек) */
-export const NOTIFY_CHANNELS = ["orders", "marketing", "system"];
+export const NOTIFY_CHANNELS = ["orders", "marketing", "system", "referrals"];
 
 export function getNotifyPreferences(user) {
   const raw = user?.notify_preferences;
@@ -25,7 +26,9 @@ export function getNotifyPreferences(user) {
     orders: typeof raw.orders === "boolean" ? raw.orders : DEFAULT_NOTIFY_PREFERENCES.orders,
     marketing:
       typeof raw.marketing === "boolean" ? raw.marketing : DEFAULT_NOTIFY_PREFERENCES.marketing,
-    system: typeof raw.system === "boolean" ? raw.system : DEFAULT_NOTIFY_PREFERENCES.system
+    system: typeof raw.system === "boolean" ? raw.system : DEFAULT_NOTIFY_PREFERENCES.system,
+    referrals:
+      typeof raw.referrals === "boolean" ? raw.referrals : DEFAULT_NOTIFY_PREFERENCES.referrals
   };
 }
 
@@ -36,7 +39,8 @@ export function mergeNotifyPreferences(currentUser, patch) {
   return {
     orders: typeof patch.orders === "boolean" ? patch.orders : cur.orders,
     marketing: typeof patch.marketing === "boolean" ? patch.marketing : cur.marketing,
-    system: typeof patch.system === "boolean" ? patch.system : cur.system
+    system: typeof patch.system === "boolean" ? patch.system : cur.system,
+    referrals: typeof patch.referrals === "boolean" ? patch.referrals : cur.referrals
   };
 }
 

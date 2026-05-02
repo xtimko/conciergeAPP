@@ -1,5 +1,5 @@
 /**
- * Уведомление админам в Telegram о первой регистрации клиента (POST /api/auth/telegram).
+ * Уведомление админам в Telegram о регистрации клиента (после complete-onboarding).
  * Те же чаты, что и для сводок: TELEGRAM_ADMIN_CHAT_IDS (или TELEGRAM_ADMIN_CHAT_ID).
  */
 import { sendTelegramMessage } from "./telegramBotApi.js";
@@ -17,34 +17,45 @@ function parseAdminChatIds() {
     : [];
 }
 
+function findUserByEmail(db, email) {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) return null;
+  return db.users?.find((u) => String(u.email || "").trim().toLowerCase() === e) || null;
+}
+
 /**
  * @param {string} botToken
- * @param {object} user — пользователь после applyReferralToNewUser (referred_by, referred_by_name)
+ * @param {object} db — readDb() для поиска пригласившего по referred_by
+ * @param {object} user — клиент после завершения онбординга
  */
-export async function notifyAdminsNewClient(botToken, user) {
+export async function notifyAdminsNewClient(botToken, db, user) {
   const chatIds = parseAdminChatIds();
   if (!botToken || !chatIds.length) return;
 
+  const usernameRaw = String(user.telegram_username || "").replace(/^@/, "");
+  const usernameLine = usernameRaw ? `@${escapeHtml(usernameRaw)}` : "";
+  const tgId = escapeHtml(String(user.telegram_id || ""));
   const displayName = escapeHtml(
     String(user.full_name || "").trim() ||
       [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
       "Клиент"
   );
-  const usernameRaw = String(user.telegram_username || "").replace(/^@/, "");
-  const usernamePart = usernameRaw
-    ? ` @${escapeHtml(usernameRaw)}`
-    : "";
   const publicId = escapeHtml(user.public_id || "—");
-  const tgId = escapeHtml(String(user.telegram_id || ""));
 
-  let refBlock;
-  if (String(user.referred_by || "").trim() || String(user.referred_by_name || "").trim()) {
+  const refByEmail = String(user.referred_by || "").trim();
+  const refLines = [];
+  if (refByEmail || String(user.referred_by_name || "").trim()) {
+    const inviter = findUserByEmail(db, refByEmail);
+    const inviterTg = inviter ? escapeHtml(String(inviter.telegram_id || "")) : "";
+    const inviterUser = inviter?.telegram_username
+      ? `@${escapeHtml(String(inviter.telegram_username).replace(/^@/, ""))}`
+      : "";
     const refName = escapeHtml(String(user.referred_by_name || "").trim() || "—");
-    const refKey = escapeHtml(String(user.referred_by || "").trim());
-    refBlock = `Пришёл <b>по рефералу</b>\n👤 ${refName}`;
-    if (refKey) refBlock += `\n<code>${refKey}</code>`;
+    refLines.push("Пришёл <b>по рефералу</b>", `👤 ${refName}`);
+    if (inviterUser) refLines.push(inviterUser);
+    if (inviterTg) refLines.push(`Telegram id пригласившего: <code>${inviterTg}</code>`);
   } else {
-    refBlock = "Источник: <b>без реферала</b> (прямой вход).";
+    refLines.push("Источник: <b>без реферала</b> (прямой вход).");
   }
 
   const firstAdmin =
@@ -52,16 +63,19 @@ export async function notifyAdminsNewClient(botToken, user) {
       ? "\n\n<i>Первый пользователь в базе — назначен администратором.</i>"
       : "";
 
-  const text = [
-    "🆕 <b>Новый клиент</b>",
+  const lines = [
+    "🆕 <b>Новый клиент</b> (прошёл регистрацию)",
     "",
-    `${displayName}${usernamePart}`,
-    `Номер: <code>${publicId}</code>`,
+    ...(usernameLine ? [usernameLine] : []),
     `Telegram id: <code>${tgId}</code>`,
+    displayName,
+    `Номер: <code>${publicId}</code>`,
     "",
-    refBlock,
+    ...refLines,
     firstAdmin
-  ].join("\n");
+  ].filter((line) => line !== "");
+
+  const text = lines.join("\n");
 
   for (const chatId of chatIds) {
     await sendTelegramMessage(botToken, chatId, text);

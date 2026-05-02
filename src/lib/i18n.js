@@ -80,6 +80,7 @@ const translations = {
       notifyOrders: "Заказы (статусы, новые заказы)",
       notifyMarketing: "Акции и новости",
       notifySystem: "Важные сообщения сервиса",
+      notifyReferrals: "Рефералы (друзья, баллы)",
       notifyHint: "Отключённые типы бот присылать не будет.",
       onboardingFriendCodeOptional:
         "Код друга (если открыли приложение без реферальной ссылки)",
@@ -165,6 +166,7 @@ const translations = {
       notifyOrders: "Orders (status updates, new orders)",
       notifyMarketing: "Promos and news",
       notifySystem: "Important service messages",
+      notifyReferrals: "Referrals (friends and points)",
       notifyHint: "The bot won't send disabled types.",
       onboardingFriendCodeOptional:
         "Friend's code (only if you opened the app without a referral link)",

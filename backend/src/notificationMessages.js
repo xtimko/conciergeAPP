@@ -120,5 +120,27 @@ export function formatOrderStatusMessageRu(order) {
   const oid = escapeHtml(order.id || "—");
   const st = escapeHtml(ORDER_STATUS_TITLE_RU[order.status] || order.status);
 
-  return `<b>Обновление по заказу:</b>\n\n${name}${size}\n<code>${oid}</code>\n\nСтатус -> <b>${st}</b>`;
+  const parts = [
+    "<b>Обновление по заказу:</b>",
+    "",
+    `${name}${size}`,
+    `<code>${oid}</code>`,
+    "",
+    `Статус → <b>${st}</b>`
+  ];
+
+  if (order.status === "delivered") {
+    const ref = Number(order.referral_bonus || 0);
+    if (ref > 0) {
+      parts.push("");
+      if (order.client_bonus_mode === "subtract") {
+        parts.push(`Списано баллов по заказу: <b>${Math.round(ref)}</b>`);
+      } else {
+        parts.push(`Начислено баллов по заказу: <b>${Math.round(ref)}</b>`);
+      }
+      parts.push("Спасибо, что вы с Concierge.");
+    }
+  }
+
+  return parts.join("\n");
 }

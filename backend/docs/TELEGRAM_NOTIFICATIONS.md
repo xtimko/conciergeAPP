@@ -46,6 +46,6 @@ promo_10: {
 
 ## Админ: новая регистрация клиента
 
-При **первом** успешном `POST /api/auth/telegram` (создание записи в `data.json`) в чаты из **`TELEGRAM_ADMIN_CHAT_IDS`** (тот же список, что для сводок по заказам в `adminOrderDigest.js`) уходит короткое HTML-сообщение: имя, `@username`, `public_id`, telegram id, блок «по рефералу» (имя и идентификатор пригласившего из `referred_by_name` / `referred_by`) или «без реферала».
+После успешного `POST /api/users/complete-onboarding` (клиент завершил регистрацию, `profile_completed: true`) в чаты из **`TELEGRAM_ADMIN_CHAT_IDS`** (тот же список, что для сводок по заказам в `adminOrderDigest.js`) уходит HTML-сообщение: сверху `@username` (если есть), **Telegram id**, имя, `public_id`, блок «по рефералу» (Telegram id пригласившего и при наличии `@username`) или «без реферала».
 
 Реализация: `backend/src/adminNotifyRegistration.js` → `notifyAdminsNewClient`. Без токена бота или без списка чатов уведомления не отправляются.

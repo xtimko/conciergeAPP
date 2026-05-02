@@ -87,7 +87,7 @@ export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, 
     disable_web_page_preview: true,
     reply_markup: {
       inline_keyboard: [
-        [{ text: "Открыть приложение", web_app: { url: url } }]
+        [{ text: "Открыть Concierge", web_app: { url: url } }]
       ]
     }
   });
