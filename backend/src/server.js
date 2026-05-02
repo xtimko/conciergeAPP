@@ -19,6 +19,7 @@ import { mergeNotifyPreferences } from "./clientNotifications.js";
 import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
 import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
 import { notifyAdminsNewClient } from "./adminNotifyRegistration.js";
+import { startTelegramLongPolling } from "./telegramLongPolling.js";
 import {
   notifyReferrerDeliveryBonus,
   notifyReferrerFriendOrdered,
@@ -690,41 +691,28 @@ app.get("/api/referrals/stats", authRequired, (req, res) => {
 });
 
 /**
- * Webhook Telegram Bot: /start → приветствие + кнопка Mini App; ref_ → pending для первого входа.
- * Настройка: setWebhook url=https://домен/api/telegram/webhook secret_token=TELEGRAM_WEBHOOK_SECRET
+ * Общая обработка апдейтов Telegram (webhook и long polling используют её).
+ * Поддерживает только /start (с опциональным реферальным payload).
  */
-app.post("/api/telegram/webhook", (req, res) => {
-  if (TELEGRAM_WEBHOOK_SECRET) {
-    const token = req.headers["x-telegram-bot-api-secret-token"];
-    if (token !== TELEGRAM_WEBHOOK_SECRET) {
-      return res.status(403).json({ ok: false });
-    }
-  }
-
+function handleTelegramStartUpdate(message) {
   try {
-    const msg = req.body?.message;
+    const msg = message;
     const text = (msg?.text || "").trim();
-    if (!msg?.chat?.id || !text.startsWith("/start")) {
-      return res.json({ ok: true });
-    }
+    if (!msg?.chat?.id || !text.startsWith("/start")) return;
 
     const fromId = msg.from?.id;
-    if (!fromId) return res.json({ ok: true });
+    if (!fromId) return;
 
     const m = /^\/start(?:\s+(.+))?$/i.exec(text);
-    const payload = (m && m[1]) ? String(m[1]).trim() : "";
+    const payload = m && m[1] ? String(m[1]).trim() : "";
 
     const db = readDb();
     if (!db.pending_referrals) db.pending_referrals = {};
 
-    let referrerId = null;
     const token = parseRefTokenFromStartParam(payload);
     if (token) {
       const rid = resolveReferrerIdByToken(db, token);
-      if (rid) {
-        referrerId = rid;
-        storePendingReferrer(db, fromId, rid);
-      }
+      if (rid) storePendingReferrer(db, fromId, rid);
     } else {
       storePendingReferrer(db, fromId, null);
     }
@@ -741,13 +729,27 @@ app.post("/api/telegram/webhook", (req, res) => {
         sendTelegramWelcomeWithWebApp(TELEGRAM_BOT_TOKEN, msg.chat.id, welcomeHtml, appUrl);
       } else {
         console.warn(
-          "[concierge] webhook /start: задайте PUBLIC_APP_URL или FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
+          "[concierge] /start: задайте PUBLIC_APP_URL или FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
         );
       }
     }
   } catch (e) {
-    console.warn("[concierge] telegram webhook:", e?.message || e);
+    console.warn("[concierge] handleTelegramStartUpdate:", e?.message || e);
   }
+}
+
+/**
+ * Webhook Telegram Bot: /start → приветствие + кнопка Mini App; ref_ → pending для первого входа.
+ * Настройка: setWebhook url=https://домен/api/telegram/webhook secret_token=TELEGRAM_WEBHOOK_SECRET
+ */
+app.post("/api/telegram/webhook", (req, res) => {
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const token = req.headers["x-telegram-bot-api-secret-token"];
+    if (token !== TELEGRAM_WEBHOOK_SECRET) {
+      return res.status(403).json({ ok: false });
+    }
+  }
+  handleTelegramStartUpdate(req.body?.message);
   res.json({ ok: true });
 });
 
@@ -839,6 +841,13 @@ function migrateDbOnce() {
 migrateDbOnce();
 
 scheduleAdminOrderDigest(TELEGRAM_BOT_TOKEN);
+
+if (process.env.TELEGRAM_USE_LONG_POLLING === "true" && TELEGRAM_BOT_TOKEN) {
+  startTelegramLongPolling(TELEGRAM_BOT_TOKEN, (upd) => {
+    if (upd?.message) handleTelegramStartUpdate(upd.message);
+  });
+  console.log("[concierge] Telegram long polling включён (TELEGRAM_USE_LONG_POLLING=true).");
+}
 
 app.listen(PORT, () => {
   console.log(`[concierge] API running on http://localhost:${PORT} (storage: data.json)`);
