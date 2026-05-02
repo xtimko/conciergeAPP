@@ -2,6 +2,8 @@ import "./loadEnv.js";
 import express from "express";
 import cors from "cors";
 import jwt from "jsonwebtoken";
+import fs from "node:fs";
+import path from "node:path";
 import {
   createUserFromTelegram,
   nowIso,
@@ -35,11 +37,29 @@ const PUBLIC_APP_URL = String(process.env.PUBLIC_APP_URL || process.env.FRONTEND
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_BOT_USERNAME = String(process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
 const TELEGRAM_WEBHOOK_SECRET = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
-/** Публичный HTTPS URL картинки для welcome (/start).
- *  Если переменная не задана, по умолчанию используется `${PUBLIC_APP_URL}/welcome.png`
- *  (картинка лежит во фронте `public/welcome.png` и деплоится с `dist/`).
- *  Чтобы выключить фото — задайте `WELCOME_PHOTO_URL=none` в .env.
+/** Источник картинки для welcome (/start).
+ *  WELCOME_PHOTO_PATH — абсолютный путь к локальному файлу (надёжнее URL: Telegram качает
+ *    файл прямо из multipart, не ходит на наш домен; если домен закрыт для зарубежных IP,
+ *    URL-вариант не работает). Путь автодетектится среди типичных мест деплоя.
+ *  WELCOME_PHOTO_URL — публичный HTTPS URL (fallback). Не задано → `${PUBLIC_APP_URL}/welcome.png`.
+ *  Чтобы полностью выключить фото — `WELCOME_PHOTO_URL=none` или `WELCOME_PHOTO_PATH=none` в .env.
  */
+const WELCOME_PHOTO_PATH = (() => {
+  const explicit = String(process.env.WELCOME_PHOTO_PATH || "").trim();
+  if (explicit) return explicit.toLowerCase() === "none" ? "" : explicit;
+  const candidates = [
+    "/opt/concierge/web/welcome.png",
+    path.resolve(process.cwd(), "../web/welcome.png"),
+    path.resolve(process.cwd(), "dist/welcome.png"),
+    path.resolve(process.cwd(), "public/welcome.png")
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {}
+  }
+  return "";
+})();
 const WELCOME_PHOTO_URL = (() => {
   const explicit = String(
     process.env.WELCOME_PHOTO_URL || process.env.TELEGRAM_WELCOME_PHOTO_URL || ""
@@ -751,6 +771,7 @@ function handleTelegramStartUpdate(message) {
           appUrl,
           {
             botUsername: TELEGRAM_BOT_USERNAME,
+            photoPath: WELCOME_PHOTO_PATH,
             photoUrl: WELCOME_PHOTO_URL
           }
         );
@@ -878,4 +899,11 @@ if (process.env.TELEGRAM_USE_LONG_POLLING === "true" && TELEGRAM_BOT_TOKEN) {
 
 app.listen(PORT, () => {
   console.log(`[concierge] API running on http://localhost:${PORT} (storage: data.json)`);
+  if (WELCOME_PHOTO_PATH) {
+    console.log(`[concierge] welcome photo (multipart): ${WELCOME_PHOTO_PATH}`);
+  } else if (WELCOME_PHOTO_URL) {
+    console.log(`[concierge] welcome photo (URL):       ${WELCOME_PHOTO_URL}`);
+  } else {
+    console.log("[concierge] welcome photo:              отключено (только текст)");
+  }
 });
