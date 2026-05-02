@@ -20,7 +20,6 @@ import {
 } from '@/lib/clientDisplay';
 import { filterClientsForAdminList } from '@/lib/clientSearch';
 import { buildReferralLink } from '@/lib/referralLink';
-import SafeExternalImage from '@/components/SafeExternalImage';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -405,7 +404,7 @@ export default function AdminClients() {
                     onClick={() => setSelectedOrder(order)}
                   >
                     {order.image_url ? (
-                      <SafeExternalImage
+                      <img
                         src={order.image_url}
                         alt=""
                         className="w-14 h-14 rounded-lg object-cover shrink-0 bg-muted/30"
