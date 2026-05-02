@@ -1,7 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import SafeExternalImage from '@/components/SafeExternalImage';
 
 export default function ImageUploadField({ value, onChange }) {
+  const [previewBroken, setPreviewBroken] = useState(false);
+  useEffect(() => {
+    setPreviewBroken(false);
+  }, [value]);
+
   return (
     <div className="col-span-2">
       <label className="text-xs">URL изображения</label>
@@ -15,7 +21,12 @@ export default function ImageUploadField({ value, onChange }) {
       </div>
       {value && (
         <div className="relative mt-2 rounded-xl overflow-hidden w-full h-36 bg-muted/30">
-          <img src={value} alt="preview" className="w-full h-full object-contain" />
+          <SafeExternalImage
+            src={value}
+            alt="preview"
+            className="w-full h-full object-contain"
+            onBroken={() => setPreviewBroken(true)}
+          />
           <button
             type="button"
             onClick={() => onChange('')}
@@ -23,6 +34,12 @@ export default function ImageUploadField({ value, onChange }) {
           >
             <X className="w-3.5 h-3.5" />
           </button>
+          {previewBroken ? (
+            <p className="absolute bottom-2 left-2 right-12 text-[10px] text-muted-foreground leading-snug px-1">
+              Превью недоступно (хостинг режет встраивание). Для бота и клиента картинка всё равно может
+              отображаться — проверьте ссылку или загрузите файл на HTTPS-хостинг без анти-hotlink.
+            </p>
+          ) : null}
         </div>
       )}
     </div>

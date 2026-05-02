@@ -7,12 +7,18 @@ import { sendTelegramMessage, sendTelegramPhoto, deleteTelegramMessage } from ".
 import { formatOrderCreatedNotificationRu, formatOrderStatusMessageRu } from "./notificationMessages.js";
 import { readDb, writeDb } from "./db.js";
 
-/** В data.json: последнее сообщение бота по заказу (перед обновлением статуса удаляем — новое сообщение даёт push). */
-const ORDER_TG_MSG_KEY = "telegram_order_status_msg";
+const ORDER_CREATED_MSG_KEY = "telegram_order_created_msg";
+const ORDER_STATUS_MSG_KEY = "telegram_order_status_msg";
 
-function ensureOrderMsgStore(db) {
-  if (!db[ORDER_TG_MSG_KEY] || typeof db[ORDER_TG_MSG_KEY] !== "object") {
-    db[ORDER_TG_MSG_KEY] = {};
+function ensureCreatedMsgStore(db) {
+  if (!db[ORDER_CREATED_MSG_KEY] || typeof db[ORDER_CREATED_MSG_KEY] !== "object") {
+    db[ORDER_CREATED_MSG_KEY] = {};
+  }
+}
+
+function ensureStatusMsgStore(db) {
+  if (!db[ORDER_STATUS_MSG_KEY] || typeof db[ORDER_STATUS_MSG_KEY] !== "object") {
+    db[ORDER_STATUS_MSG_KEY] = {};
   }
 }
 
@@ -126,8 +132,8 @@ export async function notifyClientTelegram(botToken, user, payload) {
       const result = await meta.send(botToken, idStr, { order, user });
       if (result?.message_id != null && order?.id) {
         const db = readDb();
-        ensureOrderMsgStore(db);
-        db[ORDER_TG_MSG_KEY][String(order.id)] = {
+        ensureCreatedMsgStore(db);
+        db[ORDER_CREATED_MSG_KEY][String(order.id)] = {
           chat_id: idStr,
           message_id: result.message_id,
           is_photo: !!result.is_photo
@@ -157,8 +163,8 @@ export async function notifyClientTelegram(botToken, user, payload) {
   if (type === "order_status_changed" && order?.id) {
     const oid = String(order.id);
     const db = readDb();
-    ensureOrderMsgStore(db);
-    const existing = db[ORDER_TG_MSG_KEY][oid];
+    ensureStatusMsgStore(db);
+    const existing = db[ORDER_STATUS_MSG_KEY][oid];
     if (existing?.message_id != null && existing?.chat_id) {
       await deleteTelegramMessage(botToken, existing.chat_id, existing.message_id);
     }
@@ -168,8 +174,8 @@ export async function notifyClientTelegram(botToken, user, payload) {
     const mid = await sendTelegramMessage(botToken, idStr, text, msgOpts);
     if (mid != null && type === "order_status_changed" && order?.id) {
       const db = readDb();
-      ensureOrderMsgStore(db);
-      db[ORDER_TG_MSG_KEY][String(order.id)] = {
+      ensureStatusMsgStore(db);
+      db[ORDER_STATUS_MSG_KEY][String(order.id)] = {
         chat_id: idStr,
         message_id: mid,
         is_photo: false

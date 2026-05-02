@@ -16,6 +16,7 @@ import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics'
 import { toast } from 'sonner';
 import { formatOrderEtaClientLine } from '@/lib/estimatedDelivery';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
+import SafeExternalImage from '@/components/SafeExternalImage';
 
 function formatDate(iso, locale) {
   if (!iso) return null;
@@ -197,7 +198,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
                 }}
                 aria-label={lang === 'ru' ? 'Увеличить фото' : 'Enlarge photo'}
               >
-                <img
+                <SafeExternalImage
                   src={order.image_url}
                   alt=""
                   className="w-full max-h-[min(42vw,220px)] object-contain mx-auto block"
@@ -289,13 +290,12 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
               aria-label={lang === 'ru' ? 'Фото' : 'Photo'}
               className="relative z-[1] flex flex-col items-center justify-center gap-3 max-w-full max-h-[min(92dvh,100%)] pointer-events-none"
             >
-              <img
+              <SafeExternalImage
                 src={lightboxUrl}
                 alt=""
                 className={`pointer-events-auto max-w-full max-h-[min(72dvh,78vw)] w-auto object-contain rounded-lg shadow-2xl transition-all duration-300 ease-out ${
                   lightboxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.94]'
                 }`}
-                draggable={false}
               />
               <Button
                 type="button"

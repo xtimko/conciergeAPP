@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
 import ImageUploadField from '@/components/admin/ImageUploadField';
+import SafeExternalImage from '@/components/SafeExternalImage';
 import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
 import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
 import { getClientEmailForOrder } from '@/lib/clientDisplay';
@@ -717,7 +718,11 @@ export default function AdminOrders() {
               )}
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {order.image_url && (
-                  <img src={order.image_url} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
+                  <SafeExternalImage
+                    src={order.image_url}
+                    alt=""
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0"
+                  />
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{order.item_name}</p>
