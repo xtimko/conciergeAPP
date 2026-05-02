@@ -71,24 +71,37 @@ export async function sendTelegramMessage(botToken, chatId, text) {
 /**
  * Приветствие после /start: текст + кнопка открытия Mini App.
  * webAppUrl — публичный HTTPS URL фронта (как в BotFather для Web App).
+ * options.botUsername — если задан, используется inline-ссылка
+ *   `https://t.me/<botUsername>?startapp`, что открывает Mini App в full-screen
+ *   режиме (как Menu Button), а не в half-screen (как inline web_app).
  */
-export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, webAppUrl) {
-  if (!botToken || !chatId || !webAppUrl) return;
+export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, webAppUrl, options = {}) {
+  if (!botToken || !chatId) return;
   const id = String(chatId).trim();
-  const url = String(webAppUrl).trim().replace(/\/$/, "");
-  if (!id || !/^https:\/\//i.test(url)) {
-    console.warn("[telegramBotApi] welcome WebApp: нужен HTTPS URL фронта (PUBLIC_APP_URL / FRONTEND_ORIGIN)");
+  if (!id) return;
+
+  const botUsername = String(options?.botUsername || "").replace(/^@/, "").trim();
+  const url = String(webAppUrl || "").trim().replace(/\/$/, "");
+
+  let button = null;
+  if (botUsername) {
+    button = { text: "Открыть Concierge", url: `https://t.me/${botUsername}?startapp` };
+  } else if (/^https:\/\//i.test(url)) {
+    button = { text: "Открыть Concierge", web_app: { url } };
+  } else {
+    console.warn(
+      "[telegramBotApi] welcome WebApp: задайте TELEGRAM_BOT_USERNAME (рекомендуется, full-screen) или PUBLIC_APP_URL/FRONTEND_ORIGIN (HTTPS, half-screen fallback)"
+    );
     return;
   }
+
   const body = JSON.stringify({
     chat_id: id,
     text: String(textHtml || "").slice(0, 4000),
     parse_mode: "HTML",
     disable_web_page_preview: true,
     reply_markup: {
-      inline_keyboard: [
-        [{ text: "Открыть Concierge", web_app: { url: url } }]
-      ]
+      inline_keyboard: [[button]]
     }
   });
   const dispatcher = getTelegramProxyDispatcher();

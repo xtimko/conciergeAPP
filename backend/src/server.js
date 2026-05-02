@@ -725,11 +725,17 @@ function handleTelegramStartUpdate(message) {
         "Реферальная ссылка в разделе «Рефералы»: баллы за доставленные заказы друзей.\n\n" +
         "👇";
       const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
-      if (appUrl) {
-        sendTelegramWelcomeWithWebApp(TELEGRAM_BOT_TOKEN, msg.chat.id, welcomeHtml, appUrl);
+      if (TELEGRAM_BOT_USERNAME || appUrl) {
+        sendTelegramWelcomeWithWebApp(
+          TELEGRAM_BOT_TOKEN,
+          msg.chat.id,
+          welcomeHtml,
+          appUrl,
+          { botUsername: TELEGRAM_BOT_USERNAME }
+        );
       } else {
         console.warn(
-          "[concierge] /start: задайте PUBLIC_APP_URL или FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
+          "[concierge] /start: задайте TELEGRAM_BOT_USERNAME (full-screen) или PUBLIC_APP_URL/FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
         );
       }
     }
