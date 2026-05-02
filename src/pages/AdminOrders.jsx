@@ -18,7 +18,6 @@ import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
 import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
 import { getClientEmailForOrder } from '@/lib/clientDisplay';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
-import { getProxiedOrderImageSrc } from '@/lib/orderImagePreview';
 import { hapticSuccess, hapticError, hapticImpact, hapticSelection } from '@/lib/telegramHaptics';
 import { useAdminChrome } from '@/lib/adminChromeContext';
 import {
@@ -718,7 +717,7 @@ export default function AdminOrders() {
               )}
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {order.image_url && (
-                  <img src={getProxiedOrderImageSrc(order.image_url)} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
+                  <img src={order.image_url} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{order.item_name}</p>
