@@ -138,7 +138,7 @@ export function formatOrderStatusMessageRu(order) {
       } else {
         parts.push(`Начислено баллов по заказу: <b>${Math.round(ref)}</b>`);
       }
-      parts.push("Спасибо, что вы с Concierge.");
+      parts.push("Спасибо, что Вы с Concierge.");
     }
   }
 

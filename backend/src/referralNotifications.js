@@ -38,11 +38,11 @@ export async function notifyReferrerInviteeRegistered(botToken, db, invitee) {
   const unLine = un ? `\n@${escapeHtml(un)}` : "";
 
   const text = [
-    "<b>По вашей ссылке зарегистрировался человек</b>",
+    "<b>По Вашей ссылке зарегистрировался человек</b>",
     "",
     `${name}${unLine}`,
     "",
-    "За каждый <b>доставленный</b> заказ приглашённого вам будут начисляться баллы.",
+    "За каждый <b>доставленный</b> заказ приглашённого Вам будут начисляться баллы.",
     "Мы напишем, когда друг оформит заказ."
   ].join("\n");
 
@@ -65,15 +65,13 @@ export async function notifyReferrerFriendOrdered(botToken, db, order) {
   if (!referrer?.telegram_id) return;
   if (!wantsReferralNotifications(referrer)) return;
 
-  const oid = escapeHtml(order.id || "—");
-  const item = escapeHtml(String(order.item_name || "Заказ").trim());
+  const bonusForReferrer = Math.round(refBonus);
   const text = [
-    "<b>Ваш друг оформил заказ</b>",
+    "<b>Ваш друг оформил заказ!</b>",
     "",
-    `${item}`,
-    `<code>${oid}</code>`,
-    "",
-    "Баллы начислим на ваш счёт после доставки заказа."
+    bonusForReferrer > 0
+      ? `<b>${bonusForReferrer}</b> баллов зачислим на Ваш счёт после доставки заказа.`
+      : "Баллы зачислим на Ваш счёт после доставки заказа."
   ].join("\n");
 
   await sendTelegramMessage(botToken, String(referrer.telegram_id).trim(), text);
@@ -101,7 +99,7 @@ export async function notifyReferrerDeliveryBonus(botToken, db, order) {
     "",
     `<code>${oid}</code>`,
     "",
-    `На ваш счёт зачислено <b>${n}</b> баллов за этот заказ.`,
+    `На Ваш счёт зачислено <b>${n}</b> баллов за этот заказ.`,
     "Спасибо, что делитесь Concierge с друзьями."
   ].join("\n");
 
