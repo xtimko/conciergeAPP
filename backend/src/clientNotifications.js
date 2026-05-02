@@ -3,8 +3,30 @@
  *
  * Сейчас бот шлёт только: оформление заказа и смену статуса (канал orders).
  */
-import { sendTelegramMessage, sendTelegramPhoto } from "./telegramBotApi.js";
+import {
+  sendTelegramMessage,
+  sendTelegramPhoto,
+  editTelegramMessageText,
+  editTelegramMessageCaption
+} from "./telegramBotApi.js";
 import { formatOrderCreatedNotificationRu, formatOrderStatusMessageRu } from "./notificationMessages.js";
+import { readDb, writeDb } from "./db.js";
+
+/** В data.json: привязка заказа к одному сообщению в Telegram (редактируется при смене статуса). */
+const ORDER_TG_MSG_KEY = "telegram_order_status_msg";
+
+function ensureOrderMsgStore(db) {
+  if (!db[ORDER_TG_MSG_KEY] || typeof db[ORDER_TG_MSG_KEY] !== "object") {
+    db[ORDER_TG_MSG_KEY] = {};
+  }
+}
+
+/** Подпись к фото в Telegram ≤ 1024 символов */
+function sliceTelegramCaption(html) {
+  const s = String(html || "");
+  if (s.length <= 1024) return s;
+  return `${s.slice(0, 1020)}…`;
+}
 
 /** Значения по умолчанию для новых и существующих пользователей */
 export const DEFAULT_NOTIFY_PREFERENCES = {
@@ -49,18 +71,21 @@ export function mergeNotifyPreferences(currentUser, patch) {
  * Подпись к фото ≤ 1024 символов (лимит Telegram).
  */
 async function sendOrderCreatedTelegram(botToken, chatId, { order }) {
+  const msgOpts = { openMiniApp: true };
   const raw = String(order?.image_url || "").trim();
   const hasPublicPhoto = raw && /^https?:\/\//i.test(raw);
 
   if (hasPublicPhoto) {
     const caption = formatOrderCreatedNotificationRu(order, { maxTotal: 1024 });
-    const ok = await sendTelegramPhoto(botToken, chatId, raw, caption);
-    if (ok) return;
+    const mid = await sendTelegramPhoto(botToken, chatId, raw, caption, msgOpts);
+    if (mid != null) return { message_id: mid, is_photo: true };
     console.warn("[clientNotifications] sendPhoto не удался — отправляем текстом");
   }
 
   const text = formatOrderCreatedNotificationRu(order, { maxTotal: 4096 });
-  await sendTelegramMessage(botToken, chatId, text);
+  const mid = await sendTelegramMessage(botToken, chatId, text, msgOpts);
+  if (mid == null) return null;
+  return { message_id: mid, is_photo: false };
 }
 
 export const NOTIFICATION_REGISTRY = {
@@ -110,7 +135,17 @@ export async function notifyClientTelegram(botToken, user, payload) {
 
   if (typeof meta.send === "function") {
     try {
-      await meta.send(botToken, idStr, { order, user });
+      const result = await meta.send(botToken, idStr, { order, user });
+      if (result?.message_id != null && order?.id) {
+        const db = readDb();
+        ensureOrderMsgStore(db);
+        db[ORDER_TG_MSG_KEY][String(order.id)] = {
+          chat_id: idStr,
+          message_id: result.message_id,
+          is_photo: !!result.is_photo
+        };
+        writeDb(db);
+      }
     } catch (e) {
       console.warn("[clientNotifications] send error:", e?.message || e);
     }
@@ -129,8 +164,51 @@ export async function notifyClientTelegram(botToken, user, payload) {
     return;
   }
 
+  const msgOpts = { openMiniApp: true };
+
+  if (type === "order_status_changed" && order?.id) {
+    const oid = String(order.id);
+    const db = readDb();
+    ensureOrderMsgStore(db);
+    const existing = db[ORDER_TG_MSG_KEY][oid];
+    if (existing?.message_id != null && existing?.chat_id) {
+      const edited = existing.is_photo
+        ? await editTelegramMessageCaption(
+            botToken,
+            existing.chat_id,
+            existing.message_id,
+            sliceTelegramCaption(text),
+            msgOpts
+          )
+        : await editTelegramMessageText(
+            botToken,
+            existing.chat_id,
+            existing.message_id,
+            text,
+            msgOpts
+          );
+      if (edited) return;
+      delete db[ORDER_TG_MSG_KEY][oid];
+      writeDb(db);
+      console.warn(
+        "[clientNotifications] правка сообщения не удалась — шлём новое (order_id:",
+        oid + ")"
+      );
+    }
+  }
+
   try {
-    await sendTelegramMessage(botToken, idStr, text);
+    const mid = await sendTelegramMessage(botToken, idStr, text, msgOpts);
+    if (mid != null && type === "order_status_changed" && order?.id) {
+      const db = readDb();
+      ensureOrderMsgStore(db);
+      db[ORDER_TG_MSG_KEY][String(order.id)] = {
+        chat_id: idStr,
+        message_id: mid,
+        is_photo: false
+      };
+      writeDb(db);
+    }
   } catch (e) {
     console.warn("[clientNotifications] ошибка отправки:", e?.message || e);
   }

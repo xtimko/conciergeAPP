@@ -12,7 +12,9 @@ console.log("[concierge][db] DB_PATH:", DB_PATH);
 const initialData = {
   users: [],
   orders: [],
-  pending_referrals: {}
+  pending_referrals: {},
+  /** Сообщение в Telegram по заказу (одна «карточка», редактируется при смене статуса): order_id → { chat_id, message_id, is_photo } */
+  telegram_order_status_msg: {}
 };
 
 function randomTokenSuffix(len = 10) {

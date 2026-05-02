@@ -37,9 +37,9 @@ function buildOpenConciergeReplyMarkup() {
  *   openMiniApp — добавить кнопку «Открыть Concierge» (ссылка на Mini App в full-screen), если задан TELEGRAM_BOT_USERNAME.
  */
 export async function sendTelegramMessage(botToken, chatId, text, options = {}) {
-  if (!botToken || !chatId || !text) return;
+  if (!botToken || !chatId || !text) return null;
   const id = String(chatId).trim();
-  if (!id) return;
+  if (!id) return null;
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   let replyMarkup = options.reply_markup;
   if (!replyMarkup && options.openMiniApp) {
@@ -73,9 +73,10 @@ export async function sendTelegramMessage(botToken, chatId, text, options = {}) 
         data?.error_code,
         data?.description || JSON.stringify(data)
       );
-      return;
+      return null;
     }
     console.log("[telegramBotApi] сообщение отправлено (chat_id:", id + ")");
+    return data.result?.message_id ?? null;
   } catch (e) {
     const msg = e?.message || String(e);
     console.warn("[telegramBotApi] sendMessage error:", msg);
@@ -84,6 +85,97 @@ export async function sendTelegramMessage(botToken, chatId, text, options = {}) 
         "[telegramBotApi] подсказка: задай TELEGRAM_PROXY (http://user:pass@host:port) если с VPS нет прямого доступа к api.telegram.org."
       );
     }
+    return null;
+  }
+}
+
+/**
+ * @returns {Promise<boolean>}
+ */
+export async function editTelegramMessageText(botToken, chatId, messageId, text, options = {}) {
+  if (!botToken || !chatId || messageId == null || !text) return false;
+  const id = String(chatId).trim();
+  const mid = Number(messageId);
+  if (!id || !Number.isFinite(mid)) return false;
+  let replyMarkup = options.reply_markup;
+  if (!replyMarkup && options.openMiniApp) {
+    replyMarkup = buildOpenConciergeReplyMarkup();
+  }
+  const url = `https://api.telegram.org/bot${botToken}/editMessageText`;
+  const payload = {
+    chat_id: id,
+    message_id: mid,
+    text: text.slice(0, 4096),
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  };
+  const dispatcher = getTelegramProxyDispatcher();
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 45_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn("[telegramBotApi] editMessageText failed:", data?.description || res.status);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn("[telegramBotApi] editMessageText error:", e?.message || e);
+    return false;
+  }
+}
+
+/**
+ * @returns {Promise<boolean>}
+ */
+export async function editTelegramMessageCaption(botToken, chatId, messageId, caption, options = {}) {
+  if (!botToken || !chatId || messageId == null) return false;
+  const id = String(chatId).trim();
+  const mid = Number(messageId);
+  if (!id || !Number.isFinite(mid)) return false;
+  let replyMarkup = options.reply_markup;
+  if (!replyMarkup && options.openMiniApp) {
+    replyMarkup = buildOpenConciergeReplyMarkup();
+  }
+  const cap = String(caption || "").slice(0, 1024);
+  const url = `https://api.telegram.org/bot${botToken}/editMessageCaption`;
+  const payload = {
+    chat_id: id,
+    message_id: mid,
+    caption: cap,
+    parse_mode: "HTML",
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  };
+  const dispatcher = getTelegramProxyDispatcher();
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 45_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {})
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn("[telegramBotApi] editMessageCaption failed:", data?.description || res.status);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn("[telegramBotApi] editMessageCaption error:", e?.message || e);
+    return false;
   }
 }
 
@@ -194,13 +286,21 @@ export async function sendTelegramWelcomeWithWebApp(botToken, chatId, textHtml, 
  * Фото в чат (URL должен быть доступен серверам Telegram — https/http).
  * Не подходит: data:image/... (отправь только текст или храни файл по публичному URL).
  */
-export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption) {
-  if (!botToken || !chatId || !photoUrl) return false;
+/**
+ * @param {{ reply_markup?: object, openMiniApp?: boolean }} [options]
+ * @returns {Promise<number|null>} message_id или null
+ */
+export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption, options = {}) {
+  if (!botToken || !chatId || !photoUrl) return null;
   const id = String(chatId).trim();
-  if (!id) return false;
+  if (!id) return null;
   const raw = String(photoUrl).trim();
   if (raw.startsWith("data:") || !/^https?:\/\//i.test(raw)) {
-    return false;
+    return null;
+  }
+  let replyMarkup = options.reply_markup;
+  if (!replyMarkup && options.openMiniApp) {
+    replyMarkup = buildOpenConciergeReplyMarkup();
   }
   const cap = String(caption || "").slice(0, 1024);
   const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
@@ -209,7 +309,8 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption) {
     photo: raw,
     caption: cap || undefined,
     parse_mode: "HTML",
-    disable_notification: false
+    disable_notification: false,
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
   });
   const dispatcher = getTelegramProxyDispatcher();
   try {
@@ -231,12 +332,12 @@ export async function sendTelegramPhoto(botToken, chatId, photoUrl, caption) {
         data?.error_code,
         data?.description || JSON.stringify(data)
       );
-      return false;
+      return null;
     }
     console.log("[telegramBotApi] фото отправлено (chat_id:", id + ")");
-    return true;
+    return data.result?.message_id ?? null;
   } catch (e) {
     console.warn("[telegramBotApi] sendPhoto error:", e?.message || e);
-    return false;
+    return null;
   }
 }
