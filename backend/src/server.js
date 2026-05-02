@@ -16,7 +16,7 @@ import {
   deriveClientTelegramIdFromBody
 } from "./telegramNotify.js";
 import { mergeNotifyPreferences } from "./clientNotifications.js";
-import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
+import { sendTelegramWelcomeWithWebApp, fetchRemoteImageBuffer } from "./telegramBotApi.js";
 import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
 import { notifyAdminsNewClient } from "./adminNotifyRegistration.js";
 import { startTelegramLongPolling } from "./telegramLongPolling.js";
@@ -176,6 +176,33 @@ function authRequired(req, res, next) {
   }
 }
 
+/** Запрет очевидного SSRF для /api/media/preview */
+function isAllowedExternalImageUrl(raw) {
+  try {
+    const u = new URL(raw);
+    if (!/^https?:$/i.test(u.protocol)) return false;
+    const h = u.hostname.toLowerCase();
+    if (h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h.endsWith(".localhost")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** JWT из Authorization или ?token= (для <img src>). */
+function authRequiredOrQueryToken(req, res, next) {
+  const q = String(req.query?.token || "").trim();
+  const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const token = q || bearer;
+  if (!token) return res.status(401).json({ message: "Unauthorized" });
+  try {
+    req.auth = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
+  }
+}
+
 function adminRequired(req, res, next) {
   // Важно: проверяем роль по актуальным данным в data.json, а не по полю role внутри JWT.
   // Иначе возможна рассинхронизация: роль пользователя могла поменяться в БД, но в токене осталась старая.
@@ -205,6 +232,31 @@ function normalizeEstimatedDays(body) {
 }
 
 app.get("/api/health", (_, res) => res.json({ ok: true, db: "json" }));
+
+/**
+ * Прокси превью картинки заказа для Mini App (внешний URL в <img> часто блокируется).
+ * GET /api/media/preview?url=https://...&token=... (или Authorization: Bearer).
+ */
+const MEDIA_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+app.get("/api/media/preview", authRequiredOrQueryToken, async (req, res) => {
+  const raw = String(req.query.url || "").trim();
+  if (raw.length > 2048 || !isAllowedExternalImageUrl(raw)) {
+    return res.status(400).json({ message: "Invalid url" });
+  }
+  try {
+    const fetched = await fetchRemoteImageBuffer(raw, MEDIA_PREVIEW_MAX_BYTES);
+    if (!fetched) {
+      return res.status(502).json({ message: "Image fetch failed" });
+    }
+    const ct = fetched.contentType || "application/octet-stream";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "private, max-age=300");
+    return res.send(fetched.buffer);
+  } catch (e) {
+    console.warn("[concierge] media preview:", e?.message || e);
+    return res.status(500).json({ message: "Preview error" });
+  }
+});
 
 /** Публичные настройки для фронта (реферальная ссылка t.me/...) */
 app.get("/api/public/config", (_req, res) => {

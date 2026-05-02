@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { getProxiedOrderImageSrc } from '@/lib/orderImagePreview';
 
 export default function ImageUploadField({ value, onChange }) {
   return (
@@ -15,7 +16,7 @@ export default function ImageUploadField({ value, onChange }) {
       </div>
       {value && (
         <div className="relative mt-2 rounded-xl overflow-hidden w-full h-36 bg-muted/30">
-          <img src={value} alt="preview" className="w-full h-full object-contain" />
+          <img src={getProxiedOrderImageSrc(value)} alt="preview" className="w-full h-full object-contain" />
           <button
             type="button"
             onClick={() => onChange('')}

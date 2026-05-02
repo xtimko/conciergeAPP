@@ -16,6 +16,7 @@ import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics'
 import { toast } from 'sonner';
 import { formatOrderEtaClientLine } from '@/lib/estimatedDelivery';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
+import { getProxiedOrderImageSrc } from '@/lib/orderImagePreview';
 
 function formatDate(iso, locale) {
   if (!iso) return null;
@@ -192,13 +193,13 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
                 className="w-full rounded-xl overflow-hidden mb-3 bg-muted/30 py-2 active:opacity-90"
                 onClick={() => {
                   lightboxUserDismissedRef.current = false;
-                  setLightboxUrl(order.image_url);
+                  setLightboxUrl(getProxiedOrderImageSrc(order.image_url));
                   hapticImpact('light');
                 }}
                 aria-label={lang === 'ru' ? 'Увеличить фото' : 'Enlarge photo'}
               >
                 <img
-                  src={order.image_url}
+                  src={getProxiedOrderImageSrc(order.image_url)}
                   alt=""
                   className="w-full max-h-[min(42vw,220px)] object-contain mx-auto block"
                 />

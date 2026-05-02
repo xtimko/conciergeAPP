@@ -3,6 +3,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { getStatusLabel } from '@/lib/i18n';
 import { getOrderEtaHint } from '@/lib/orderEta';
 import { Badge } from '@/components/ui/badge';
+import { getProxiedOrderImageSrc } from '@/lib/orderImagePreview';
 
 const statusTone = {
   pending: 'bg-muted/80 text-muted-foreground border-border/30',
@@ -35,7 +36,7 @@ export default function OrderRow({ order, onClick }) {
         <div className="w-11 h-11 shrink-0 rounded-lg bg-muted/40 overflow-hidden flex items-center justify-center p-0.5">
           {order.image_url ? (
             <img
-              src={order.image_url}
+              src={getProxiedOrderImageSrc(order.image_url)}
               alt=""
               className="max-h-full max-w-full w-auto h-auto object-contain"
             />

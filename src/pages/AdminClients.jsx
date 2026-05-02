@@ -20,6 +20,7 @@ import {
 } from '@/lib/clientDisplay';
 import { filterClientsForAdminList } from '@/lib/clientSearch';
 import { buildReferralLink } from '@/lib/referralLink';
+import { getProxiedOrderImageSrc } from '@/lib/orderImagePreview';
 
 export default function AdminClients() {
   const [search, setSearch] = useState('');
@@ -405,7 +406,7 @@ export default function AdminClients() {
                   >
                     {order.image_url ? (
                       <img
-                        src={order.image_url}
+                        src={getProxiedOrderImageSrc(order.image_url)}
                         alt=""
                         className="w-14 h-14 rounded-lg object-cover shrink-0 bg-muted/30"
                       />
