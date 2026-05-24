@@ -778,7 +778,7 @@ function handleTelegramUpdate(message) {
           sendTelegramMessage(
             TELEGRAM_BOT_TOKEN,
             msg.chat.id,
-            "Используйте кнопки ниже для быстрого доступа 👇",
+            "Используйте кнопки ниже для быстрого доступа.",
             { reply_markup: buildClientKeyboard() }
           );
         } else {

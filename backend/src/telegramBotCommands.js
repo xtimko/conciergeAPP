@@ -5,10 +5,10 @@
  */
 import { escapeHtml, ORDER_STATUS_TITLE_RU } from "./notificationMessages.js";
 
-export const KB_PROFILE  = "👤 Мой профиль";
-export const KB_ORDERS   = "📦 Мои заказы";
-export const KB_REFERRAL = "🎁 Реферальная программа";
-export const KB_OPEN_APP = "🚀 Открыть приложение";
+export const KB_PROFILE  = "◆ Мой профиль";
+export const KB_ORDERS   = "◆ Мои заказы";
+export const KB_REFERRAL = "◆ Реферальная программа";
+export const KB_OPEN_APP = "→ Открыть приложение";
 
 /** ReplyKeyboardMarkup, который остаётся внизу чата у клиента. */
 export function buildClientKeyboard() {
@@ -51,7 +51,7 @@ function renderProfile(user) {
   const since   = formatDate(user.created_date);
 
   const lines = [
-    "👤 <b>Ваш профиль</b>",
+    "<b>◆ Профиль</b>",
     "",
     `Имя: <b>${name}</b>`,
     `Город: <b>${city}</b>`,
@@ -94,10 +94,10 @@ function renderOrders(user, db) {
   });
 
   if (!active.length) {
-    return "📦 <b>Ваши заказы</b>\n\nАктивных заказов нет.";
+    return "<b>◆ Заказы</b>\n\nАктивных заказов нет.";
   }
 
-  const lines = [`📦 <b>Активные заказы (${active.length})</b>`, ""];
+  const lines = [`<b>◆ Заказы</b>  <i>(${active.length} активных)</i>`, ""];
 
   for (const o of active.slice(0, 8)) {
     const name  = escapeHtml(String(o.item_name ?? "Заказ").trim());
@@ -132,9 +132,9 @@ function renderReferral(user, db, botUsername) {
   const balance = Number(user.bonus_balance ?? 0).toLocaleString("ru-RU");
 
   const lines = [
-    "🎁 <b>Реферальная программа</b>",
+    "<b>◆ Реферальная программа</b>",
     "",
-    "Приглашайте друзей — получайте баллы за каждого!",
+    "Приглашайте друзей — получайте баллы за каждого.",
   ];
 
   if (refLink) {
@@ -181,7 +181,7 @@ export function handleBotMessage(message, db, opts = {}) {
       : String(opts.appUrl ?? "").trim();
     return {
       text: url
-        ? `🚀 <a href="${escapeHtml(url)}">Открыть Concierge</a>`
+        ? `<a href="${escapeHtml(url)}">Открыть Concierge</a>`
         : "Откройте приложение через меню бота."
     };
   }
