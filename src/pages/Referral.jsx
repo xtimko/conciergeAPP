@@ -6,7 +6,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import GlassCard from '@/components/ui/GlassCard';
 import { Button } from '@/components/ui/button';
-import { Check, Users, Gift, Link2, Loader2 } from 'lucide-react';
+import { Check, Users, Gift, Link2, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildReferralLink } from '@/lib/referralLink';
 
@@ -71,6 +71,13 @@ export default function Referral() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const shareLink = () => {
+    if (!referralLink) return;
+    const text = t('shareText', lang);
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(text)}`;
+    window.Telegram?.WebApp?.openTelegramLink(shareUrl);
+  };
+
   if (configLoading) {
     return (
       <div className="px-4 pt-6 space-y-5">
@@ -106,15 +113,26 @@ export default function Referral() {
             <p className="text-[11px] font-mono break-all text-left bg-muted/20 rounded-lg px-2 py-2 mb-3">
               {referralLink}
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="glass border-border/30 text-xs"
-              onClick={copyLink}
-            >
-              {copiedLink ? <Check className="w-3 h-3 mr-2 text-green-400" /> : <Link2 className="w-3 h-3 mr-2" />}
-              {copiedLink ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : t('copyReferralLink', lang)}
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="glass border-border/30 text-xs"
+                onClick={copyLink}
+              >
+                {copiedLink ? <Check className="w-3 h-3 mr-2 text-green-400" /> : <Link2 className="w-3 h-3 mr-2" />}
+                {copiedLink ? (lang === 'ru' ? 'Скопировано!' : 'Copied!') : t('copyReferralLink', lang)}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="glass border-border/30 text-xs"
+                onClick={shareLink}
+              >
+                <Share2 className="w-3 h-3 mr-2" />
+                {lang === 'ru' ? 'Поделиться' : 'Share'}
+              </Button>
+            </div>
           </>
         ) : (
           <p className="text-xs text-muted-foreground text-center py-2">
