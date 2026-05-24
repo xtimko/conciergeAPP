@@ -16,7 +16,8 @@ import {
   deriveClientTelegramIdFromBody
 } from "./telegramNotify.js";
 import { mergeNotifyPreferences } from "./clientNotifications.js";
-import { sendTelegramWelcomeWithWebApp } from "./telegramBotApi.js";
+import { sendTelegramWelcomeWithWebApp, sendTelegramMessage } from "./telegramBotApi.js";
+import { handleBotMessage, buildClientKeyboard } from "./telegramBotCommands.js";
 import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
 import { notifyAdminsNewClient } from "./adminNotifyRegistration.js";
 import { startTelegramLongPolling } from "./telegramLongPolling.js";
@@ -726,63 +727,87 @@ app.get("/api/referrals/stats", authRequired, (req, res) => {
 
 /**
  * Общая обработка апдейтов Telegram (webhook и long polling используют её).
- * Поддерживает только /start (с опциональным реферальным payload).
+ * /start → приветствие + inline-кнопка открытия Mini App + установка постоянной клавиатуры.
+ * Остальные команды и кнопки клавиатуры → handleBotMessage.
  */
-function handleTelegramStartUpdate(message) {
+function handleTelegramUpdate(message) {
   try {
     const msg = message;
     const text = (msg?.text || "").trim();
-    if (!msg?.chat?.id || !text.startsWith("/start")) return;
+    if (!msg?.chat?.id || !text) return;
 
     const fromId = msg.from?.id;
     if (!fromId) return;
 
-    const m = /^\/start(?:\s+(.+))?$/i.exec(text);
-    const payload = m && m[1] ? String(m[1]).trim() : "";
+    // /start — приветствие
+    if (/^\/start(\s|$)/i.test(text)) {
+      const m = /^\/start(?:\s+(.+))?$/i.exec(text);
+      const payload = m && m[1] ? String(m[1]).trim() : "";
 
-    const db = readDb();
-    if (!db.pending_referrals) db.pending_referrals = {};
-
-    const token = parseRefTokenFromStartParam(payload);
-    if (token) {
-      const rid = resolveReferrerIdByToken(db, token);
-      if (rid) storePendingReferrer(db, fromId, rid);
-    } else {
-      storePendingReferrer(db, fromId, null);
-    }
-    writeDb(db);
-
-    if (TELEGRAM_BOT_TOKEN) {
-      const welcomeHtml =
-        "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
-        "Выкупим, найдем и доставим любой товар под любой случай.\n\n" +
-        "<b>Внутри приложения:</b>\n" +
-        "• личный кабинет клиента\n" +
-        "• отслеживание заказов\n" +
-        "• реферальная программа: баллы за друзей\n\n" +
-        "Откройте приложение, чтобы начать ⬇️";
-      const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
-      if (TELEGRAM_BOT_USERNAME || appUrl) {
-        sendTelegramWelcomeWithWebApp(
-          TELEGRAM_BOT_TOKEN,
-          msg.chat.id,
-          welcomeHtml,
-          appUrl,
-          { botUsername: TELEGRAM_BOT_USERNAME }
-        );
+      const db = readDb();
+      if (!db.pending_referrals) db.pending_referrals = {};
+      const token = parseRefTokenFromStartParam(payload);
+      if (token) {
+        const rid = resolveReferrerIdByToken(db, token);
+        if (rid) storePendingReferrer(db, fromId, rid);
       } else {
-        console.warn(
-          "[concierge] /start: задайте TELEGRAM_BOT_USERNAME (full-screen) или PUBLIC_APP_URL/FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
-        );
+        storePendingReferrer(db, fromId, null);
+      }
+      writeDb(db);
+
+      if (TELEGRAM_BOT_TOKEN) {
+        const welcomeHtml =
+          "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
+          "Выкупим, найдем и доставим любой товар под любой случай.\n\n" +
+          "<b>Внутри приложения:</b>\n" +
+          "• личный кабинет клиента\n" +
+          "• отслеживание заказов\n" +
+          "• реферальная программа: баллы за друзей\n\n" +
+          "Откройте приложение, чтобы начать ⬇️";
+        const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
+        if (TELEGRAM_BOT_USERNAME || appUrl) {
+          // Сначала welcome с inline-кнопкой «Открыть Concierge»
+          sendTelegramWelcomeWithWebApp(
+            TELEGRAM_BOT_TOKEN,
+            msg.chat.id,
+            welcomeHtml,
+            appUrl,
+            { botUsername: TELEGRAM_BOT_USERNAME }
+          );
+          // Затем устанавливаем постоянную клавиатуру отдельным сообщением
+          sendTelegramMessage(
+            TELEGRAM_BOT_TOKEN,
+            msg.chat.id,
+            "Используйте кнопки ниже для быстрого доступа 👇",
+            { reply_markup: buildClientKeyboard() }
+          );
+        } else {
+          console.warn(
+            "[concierge] /start: задайте TELEGRAM_BOT_USERNAME (full-screen) или PUBLIC_APP_URL/FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
+          );
+        }
+      }
+      return;
+    }
+
+    // Команды и кнопки клавиатуры
+    if (TELEGRAM_BOT_TOKEN) {
+      const db = readDb();
+      const result = handleBotMessage(msg, db, {
+        botUsername: TELEGRAM_BOT_USERNAME,
+        appUrl: PUBLIC_APP_URL
+      });
+      if (result) {
+        sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, result.text);
       }
     }
   } catch (e) {
-    console.warn("[concierge] handleTelegramStartUpdate:", e?.message || e);
+    console.warn("[concierge] handleTelegramUpdate:", e?.message || e);
   }
 }
 
 /**
- * Webhook Telegram Bot: /start → приветствие + кнопка Mini App; ref_ → pending для первого входа.
+ * Webhook Telegram Bot.
  * Настройка: setWebhook url=https://домен/api/telegram/webhook secret_token=TELEGRAM_WEBHOOK_SECRET
  */
 app.post("/api/telegram/webhook", (req, res) => {
@@ -792,7 +817,7 @@ app.post("/api/telegram/webhook", (req, res) => {
       return res.status(403).json({ ok: false });
     }
   }
-  handleTelegramStartUpdate(req.body?.message);
+  handleTelegramUpdate(req.body?.message);
   res.json({ ok: true });
 });
 
@@ -887,7 +912,7 @@ scheduleAdminOrderDigest(TELEGRAM_BOT_TOKEN);
 
 if (process.env.TELEGRAM_USE_LONG_POLLING === "true" && TELEGRAM_BOT_TOKEN) {
   startTelegramLongPolling(TELEGRAM_BOT_TOKEN, (upd) => {
-    if (upd?.message) handleTelegramStartUpdate(upd.message);
+    if (upd?.message) handleTelegramUpdate(upd.message);
   });
   console.log("[concierge] Telegram long polling включён (TELEGRAM_USE_LONG_POLLING=true).");
 }
