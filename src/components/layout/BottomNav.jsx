@@ -8,10 +8,11 @@ import { useVisualKeyboardOpen } from '@/lib/useVisualKeyboardOpen';
 import { cn } from '@/lib/utils';
 
 /**
- * Premium bottom navigation.
- * - glass-chrome-bottom с усиленным размытием
- * - Активная иконка — стеклянная плашка с тонкими внутренними бликами
- * - Микроанимация на тап
+ * Floating Liquid Glass bottom nav.
+ * - Капсула оторвана от низа экрана (margin-bottom = safe-area)
+ * - Закруглена со всех сторон (rounded-full)
+ * - Сильное стекло с спекулярными бликами
+ * - Активный таб — стеклянная плашка внутри капсулы
  */
 export default function BottomNav({ isAdmin }) {
   const location = useLocation();
@@ -28,15 +29,29 @@ export default function BottomNav({ isAdmin }) {
   const tabs = clientTabs;
 
   return (
-    <nav
+    <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-30 glass-chrome-bottom miniapp-tabbar-pb pt-3',
+        'fixed bottom-0 left-0 right-0 z-30 pointer-events-none',
         'transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-        keyboardOpen && 'translate-y-full opacity-0 pointer-events-none',
+        keyboardOpen && 'translate-y-full opacity-0',
       )}
+      style={{
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--tma-content-bottom, 0px) + 12px)',
+        paddingLeft: '12px',
+        paddingRight: '12px',
+      }}
       aria-hidden={keyboardOpen}
     >
-      <div className="px-2 max-w-lg mx-auto flex justify-around items-stretch min-h-[56px]">
+      <nav
+        className={cn(
+          'relative pointer-events-auto mx-auto max-w-md',
+          'glass glass-chrome-floating',
+          'rounded-full',
+          'flex items-stretch justify-around',
+          'px-2 py-2',
+          'shadow-[0_18px_44px_-12px_rgba(0,0,0,0.55),0_8px_20px_-6px_rgba(0,0,0,0.4)]',
+        )}
+      >
         {tabs.map((tab) => {
           const isActive = location.pathname === tab.path;
           return (
@@ -44,36 +59,36 @@ export default function BottomNav({ isAdmin }) {
               key={tab.path}
               to={tab.path}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 py-1 rounded-2xl max-w-[5.5rem]',
+                'relative flex flex-1 flex-col items-center justify-center gap-0.5',
+                'rounded-full py-1.5 px-2 max-w-[5.5rem]',
                 'transition-all duration-300 active:scale-[0.94]',
                 isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80',
               )}
               aria-current={isActive ? 'page' : undefined}
             >
-              <div
-                className={cn(
-                  'p-2 rounded-2xl transition-all duration-300',
-                  isActive
-                    ? cn(
-                        'lg-subtle',
-                        // Усиленный inset highlight для активной плашки
-                        'shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_0_0_1px_rgba(255,255,255,0.08)]',
-                      )
-                    : 'bg-transparent',
-                )}
-              >
-                <tab.icon
-                  className="w-[1.35rem] h-[1.35rem]"
-                  strokeWidth={isActive ? 1.85 : 1.3}
+              {isActive && (
+                <span
+                  className={cn(
+                    'absolute inset-0 rounded-full',
+                    'lg-tab-active',
+                    'pointer-events-none',
+                  )}
+                  aria-hidden
                 />
-              </div>
-              <span className="text-[9px] font-medium tracking-[0.16em] uppercase leading-tight text-center lg-eyebrow">
-                {tab.label}
+              )}
+              <span className="relative z-10 flex flex-col items-center gap-0.5">
+                <tab.icon
+                  className="w-[1.25rem] h-[1.25rem]"
+                  strokeWidth={isActive ? 1.9 : 1.3}
+                />
+                <span className="text-[8.5px] font-medium tracking-[0.16em] uppercase leading-tight text-center">
+                  {tab.label}
+                </span>
               </span>
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

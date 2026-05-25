@@ -86,22 +86,28 @@ export function initPlatformDetection() {
   const platform = detectPlatform();
   const iosMajor = platform === 'ios' ? detectIosMajor() : null;
   const isIos26Plus = platform === 'ios' && Number(iosMajor) >= 26;
+  // iOS 17+ (Safari 17, осень 2023) поддерживает все нужные CSS фичи:
+  // backdrop-filter, mask-image, color-mix, container queries. На нём
+  // визуально получается то же, что и на iOS 26 — просто без официального
+  // языка Liquid Glass от Apple. Для нас это «достаточно современно».
+  const isIos17Plus = platform === 'ios' && Number(iosMajor) >= 17;
   const canLiquid = supportsLiquidGlass();
 
-  // Включаем «полный» Liquid Glass на:
-  //  - iOS 26+ (там настоящий язык Liquid Glass и движок справится)
-  //  - современный Chromium / десктоп (там точно хватит ресурсов)
-  // На старых iOS (<= 25) и слабых Android — fallback.
+  // Включаем расширенный материал на любой современной платформе:
+  //  - iOS 17+ (Safari 17+)
+  //  - современный Chromium (desktop / Android)
+  // На iOS ≤ 16 и совсем старых браузерах — мягкий fallback.
   const enableLiquid =
     canLiquid && (
-      isIos26Plus ||
+      isIos17Plus ||
       platform === 'desktop' ||
-      (platform === 'android' && CSS.supports('mask-image', 'linear-gradient(#000, #000)'))
+      platform === 'android'
     );
 
   const root = document.documentElement;
   root.classList.add(`platform-${platform}`);
   if (isIos26Plus) root.classList.add('ios-26-plus');
+  if (isIos17Plus) root.classList.add('ios-17-plus');
   if (enableLiquid) root.classList.add('liquid-glass-enabled');
 
   const result = { platform, iosMajor, isIos26Plus, canLiquid, enableLiquid };
