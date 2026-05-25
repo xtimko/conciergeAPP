@@ -302,6 +302,9 @@ export default function AdminOrders() {
     }
   };
 
+  /** Открыть форму создания. Если есть черновик — сначала показывается AlertDialog,
+   *  а форма откроется только после выбора пользователя.
+   */
   const openNew = useCallback(() => {
     setEditingOrder(null);
     setClientSearch('');
@@ -313,22 +316,20 @@ export default function AdminOrders() {
         ? crypto.randomUUID()
         : `idem_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`,
     );
-    // Проверяем черновик
+    setForm(buildInitialOrder());
+    // Проверяем черновик ДО открытия диалога формы
     try {
       const raw = localStorage.getItem(LS_KEYS.DRAFT);
       if (raw) {
         const draft = JSON.parse(raw);
         if (isFormDirty(draft)) {
           setDraftPrompt(draft);
-          setForm(buildInitialOrder());
-          setDialogOpen(true);
-          return;
+          return; // Dialog откроем после ответа пользователя в AlertDialog
         }
       }
     } catch {
       /* noop */
     }
-    setForm(buildInitialOrder());
     setDialogOpen(true);
   }, []);
 
@@ -347,9 +348,9 @@ export default function AdminOrders() {
   const acceptDraft = useCallback(() => {
     if (draftPrompt) {
       setForm(draftPrompt);
-      // client_email из черновика подставим тоже, но реселектить клиента надо вручную
-      setDraftPrompt(null);
     }
+    setDraftPrompt(null);
+    setDialogOpen(true);
   }, [draftPrompt]);
 
   const dismissDraft = useCallback(() => {
@@ -359,6 +360,7 @@ export default function AdminOrders() {
       /* noop */
     }
     setDraftPrompt(null);
+    setDialogOpen(true);
   }, []);
 
   const toggleQuickMode = useCallback(() => {
