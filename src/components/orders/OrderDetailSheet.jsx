@@ -189,7 +189,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
             {order.image_url && (
               <button
                 type="button"
-                className="w-full rounded-xl overflow-hidden mb-3 bg-muted/30 py-2 active:opacity-90"
+                className="block w-full max-w-sm mx-auto mb-4 active:scale-[0.99] transition-transform"
                 onClick={() => {
                   lightboxUserDismissedRef.current = false;
                   setLightboxUrl(order.image_url);
@@ -197,11 +197,14 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
                 }}
                 aria-label={lang === 'ru' ? 'Увеличить фото' : 'Enlarge photo'}
               >
-                <img
-                  src={order.image_url}
-                  alt=""
-                  className="w-full max-h-[min(42vw,220px)] object-contain mx-auto block"
-                />
+                <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden lg-subtle flex items-center justify-center p-3">
+                  <img
+                    src={order.image_url}
+                    alt=""
+                    className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
+                    draggable={false}
+                  />
+                </div>
               </button>
             )}
 

@@ -54,12 +54,13 @@ export default function OrderRow({ order, onClick }) {
       )}
     >
       <div className="flex gap-3">
-        <div className="w-12 h-12 shrink-0 rounded-xl lg-subtle overflow-hidden flex items-center justify-center p-1">
+        <div className="w-14 h-14 shrink-0 rounded-2xl lg-subtle overflow-hidden flex items-center justify-center p-1.5">
           {order.image_url ? (
             <img
               src={order.image_url}
               alt=""
-              className="max-h-full max-w-full w-auto h-auto object-contain"
+              className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg"
+              draggable={false}
             />
           ) : (
             <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
