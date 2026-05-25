@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React from 'react';
+import { Package } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
 import { getStatusLabel } from '@/lib/i18n';
 import { getOrderEtaHint } from '@/lib/orderEta';
@@ -54,16 +55,24 @@ export default function OrderRow({ order, onClick }) {
       )}
     >
       <div className="flex gap-3">
-        <div className="w-14 h-14 shrink-0 rounded-2xl lg-subtle overflow-hidden flex items-center justify-center p-1.5">
+        <div
+          className="w-14 h-14 shrink-0 rounded-2xl lg-subtle overflow-hidden flex items-center justify-center p-1.5"
+          aria-hidden={!order.image_url}
+        >
           {order.image_url ? (
             <img
               src={order.image_url}
               alt=""
               className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg"
               draggable={false}
+              loading="lazy"
             />
           ) : (
-            <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+            <Package
+              className="w-5 h-5 text-muted-foreground/45"
+              strokeWidth={1.25}
+              aria-label="Без фото"
+            />
           )}
         </div>
 

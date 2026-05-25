@@ -151,6 +151,8 @@ export default function AdminOrders() {
   const [quickMode, setQuickMode] = useState(() => readLs(LS_KEYS.QUICK_MODE) === 'true');
   /** Диалог восстановления черновика — { form } | null. */
   const [draftPrompt, setDraftPrompt] = useState(null);
+  /** Диалог подтверждения закрытия (сохранить ли черновик). */
+  const [closePrompt, setClosePrompt] = useState(false);
   /** all | active | completed */
   const [orderFilter, setOrderFilter] = useState('all');
   /** быстрая смена статуса */
@@ -333,25 +335,61 @@ export default function AdminOrders() {
     setDialogOpen(true);
   }, []);
 
-  /** Закрыть диалог: если есть несохранённый dirty form — сохранить черновик. */
+  /** Закрыть диалог: при нажатии «Отмена» / клавише Esc.
+   *  Если есть несохранённый dirty form — открывается AlertDialog «Сохранить черновик?».
+   *  Если форма пустая или редактирование — закрываем сразу.
+   */
   const handleDialogClose = useCallback(() => {
     if (!editingOrder && isFormDirty(form)) {
-      try {
-        localStorage.setItem(LS_KEYS.DRAFT, JSON.stringify(form));
-      } catch {
-        /* noop */
-      }
+      setClosePrompt(true);
+      return;
     }
     setDialogOpen(false);
   }, [editingOrder, form]);
 
+  /** Сохранить черновик и закрыть. */
+  const confirmCloseSaveDraft = useCallback(() => {
+    try {
+      localStorage.setItem(LS_KEYS.DRAFT, JSON.stringify(form));
+    } catch {
+      /* noop */
+    }
+    setClosePrompt(false);
+    setDialogOpen(false);
+  }, [form]);
+
+  /** Не сохранять — выкинуть всё и закрыть. */
+  const confirmCloseDiscardDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(LS_KEYS.DRAFT);
+    } catch {
+      /* noop */
+    }
+    setClosePrompt(false);
+    setDialogOpen(false);
+  }, []);
+
+  /** Восстановить черновик: form + state клиента, если он есть. */
   const acceptDraft = useCallback(() => {
     if (draftPrompt) {
       setForm(draftPrompt);
+      // Восстанавливаем выбор клиента из черновика
+      const email = String(draftPrompt.client_email || '').trim();
+      if (email) {
+        const found = clients.find((c) => c.email === email);
+        if (found) {
+          setSelectedClientId(found.id);
+          setClientSearch(formatClientLine(found));
+          setClientAddress(found.delivery_address || '');
+        } else {
+          // клиент не найден (удалён?) — оставим email вручную
+          setClientSearch(email);
+        }
+      }
     }
     setDraftPrompt(null);
     setDialogOpen(true);
-  }, [draftPrompt]);
+  }, [draftPrompt, clients]);
 
   const dismissDraft = useCallback(() => {
     try {
@@ -1380,6 +1418,27 @@ export default function AdminOrders() {
               className="bg-foreground text-background hover:bg-foreground/90"
             >
               Восстановить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={closePrompt} onOpenChange={(open) => !open && setClosePrompt(false)}>
+        <AlertDialogContent className="border-border/60 bg-background">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">Сохранить черновик?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Заказ не создан. Сохранить введённые данные как черновик — продолжите позже,
+              нажав «Новый заказ».
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={confirmCloseDiscardDraft}>Не сохранять</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCloseSaveDraft}
+              className="bg-foreground text-background hover:bg-foreground/90"
+            >
+              Сохранить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
