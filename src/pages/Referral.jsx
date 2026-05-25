@@ -94,15 +94,18 @@ export default function Referral() {
   if (!user) return null;
 
   return (
-    <div className="px-4 pt-6 space-y-5">
-      <div className="flex justify-center">
-        <div className="w-14 h-14 rounded-full glass flex items-center justify-center">
-          <Users className="w-6 h-6 text-muted-foreground" strokeWidth={1.25} />
+    <div className="px-4 pt-8 space-y-5">
+      <div className="flex flex-col items-center gap-3 lg-enter">
+        <div className="w-16 h-16 rounded-full glass flex items-center justify-center">
+          <Users className="w-6 h-6 text-foreground/85" strokeWidth={1.15} />
         </div>
+        <p className="text-[1.125rem] font-extralight tracking-[-0.01em] lg-display text-center">
+          {lang === 'ru' ? 'Реферальная программа' : 'Referral program'}
+        </p>
       </div>
 
-      <GlassCard className="text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] mb-2">
+      <GlassCard variant="elevated" hover={false} className="text-center p-6">
+        <p className="text-[10px] text-muted-foreground uppercase tracking-[0.22em] font-medium mb-2 lg-eyebrow">
           {t('referralLink', lang)}
         </p>
         <p className="text-[11px] text-muted-foreground mb-3 px-1 leading-relaxed">
@@ -143,26 +146,32 @@ export default function Referral() {
         )}
       </GlassCard>
 
-      <GlassCard>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Users className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-wide">{t('totalReferrals', lang)}</span>
+      <GlassCard hover={false} className="p-5">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-border/20">
+          <div className="flex items-center gap-2.5 text-muted-foreground">
+            <Users className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span className="text-[10px] uppercase tracking-[0.2em] font-medium lg-eyebrow">
+              {t('totalReferrals', lang)}
+            </span>
           </div>
-          <span className="text-lg font-light">{referrals.length}</span>
+          <span className="text-lg font-extralight tabular-nums lg-number">{referrals.length}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Gift className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-wide">{t('pointsFromFriendsTotal', lang)}</span>
+          <div className="flex items-center gap-2.5 text-muted-foreground">
+            <Gift className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <span className="text-[10px] uppercase tracking-[0.2em] font-medium lg-eyebrow">
+              {t('pointsFromFriendsTotal', lang)}
+            </span>
           </div>
-          <span className="text-lg font-light">{totalFromFriends.toLocaleString('ru-RU')}</span>
+          <span className="text-lg font-extralight tabular-nums lg-number">
+            {totalFromFriends.toLocaleString('ru-RU')}
+          </span>
         </div>
       </GlassCard>
 
-      <GlassCard>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3">
+      <GlassCard hover={false} className="p-5">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-3 lg-eyebrow">
           {t('bonusFromOrders', lang)}
         </p>
         {orderBonusRows.length === 0 ? (

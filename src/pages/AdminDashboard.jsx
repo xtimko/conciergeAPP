@@ -80,16 +80,27 @@ export default function AdminDashboard() {
               </div>
             ))
           : stats.map((stat, i) => (
-              <GlassCard key={i} className="text-center py-2.5 px-2">
-                <stat.icon className="w-4 h-4 mx-auto text-muted-foreground mb-1" strokeWidth={1.5} />
-                <p className="text-base font-light tabular-nums leading-tight">{stat.value}</p>
-                <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5 leading-tight">
+              <GlassCard
+                key={i}
+                hover={false}
+                className="text-center py-4 px-3"
+                animated
+              >
+                <div className="w-7 h-7 mx-auto mb-2 rounded-full lg-subtle flex items-center justify-center">
+                  <stat.icon className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
+                </div>
+                <p className="text-lg font-extralight tabular-nums leading-tight lg-display lg-number">
+                  {stat.value}
+                </p>
+                <p className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mt-1 leading-tight font-medium lg-eyebrow">
                   {stat.label}
                 </p>
                 {stat.subValue != null ? (
                   <>
-                    <p className="text-sm font-light tabular-nums leading-tight mt-2">{stat.subValue}</p>
-                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5 leading-tight">
+                    <p className="text-sm font-extralight tabular-nums leading-tight mt-3 lg-number">
+                      {stat.subValue}
+                    </p>
+                    <p className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground mt-1 leading-tight font-medium lg-eyebrow">
                       {stat.subLabel}
                     </p>
                   </>

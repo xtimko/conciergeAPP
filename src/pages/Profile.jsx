@@ -76,22 +76,35 @@ export default function Profile() {
   };
 
   return (
-    <div className="px-4 pt-6 space-y-4">
-      <div className="flex justify-center">
-        <div className="w-14 h-14 rounded-full glass flex items-center justify-center">
-          <User className="w-6 h-6 text-muted-foreground" strokeWidth={1.25} />
+    <div className="px-4 pt-8 space-y-5">
+      {/* Hero аватар */}
+      <div className="flex flex-col items-center gap-3 lg-enter">
+        <div className="w-16 h-16 rounded-full glass flex items-center justify-center">
+          <User className="w-6 h-6 text-foreground/85" strokeWidth={1.15} />
         </div>
+        {user.first_name || user.last_name ? (
+          <p className="text-[1.125rem] font-extralight tracking-[-0.01em] lg-display">
+            {[user.first_name, user.last_name].filter(Boolean).join(' ')}
+          </p>
+        ) : null}
       </div>
 
-      <GlassCard className="p-4">
-        <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-border/30">
-          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t('bonusBalance', lang)}</p>
-          <p className="text-xl font-light tabular-nums tracking-tight">
+      {/* Бонусы — отдельная elevated карточка */}
+      <GlassCard variant="elevated" hover={false} className="p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium lg-eyebrow">
+            {t('bonusBalance', lang)}
+          </p>
+          <p className="text-[1.75rem] font-extralight tabular-nums tracking-[-0.02em] lg-display lg-number">
             {(user.bonus_balance || 0).toLocaleString('ru-RU')}
           </p>
         </div>
+      </GlassCard>
 
-        <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2.5">{t('personalData', lang)}</p>
+      <GlassCard hover={false} className="p-5">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 lg-eyebrow">
+          {t('personalData', lang)}
+        </p>
 
         <div className="space-y-2.5">
           <div className="grid grid-cols-2 gap-2">

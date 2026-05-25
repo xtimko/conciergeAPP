@@ -1,17 +1,34 @@
+// @ts-nocheck
 import React from 'react';
 import { useTheme } from '@/lib/ThemeContext';
 import { getStatusLabel } from '@/lib/i18n';
 import { getOrderEtaHint } from '@/lib/orderEta';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
+/**
+ * Premium order row.
+ * - Тонкая glass-плашка вместо плоского bg-muted/10
+ * - Refined типографика, ровные tabular-nums для цены
+ * - Статус-чип через lg-pill (закруглённая стеклянная плашка)
+ */
 const statusTone = {
-  pending: 'bg-muted/80 text-muted-foreground border-border/30',
-  confirmed: 'bg-secondary/50 text-secondary-foreground border-border/20',
-  sourcing: 'bg-secondary/50 text-secondary-foreground border-border/20',
-  shipping: 'bg-primary/15 text-foreground border-primary/20',
-  awaiting_pickup: 'bg-primary/25 text-foreground border-primary/25',
-  delivered: 'bg-muted/50 text-muted-foreground border-border/20',
-  cancelled: 'bg-destructive/15 text-destructive border-destructive/20',
+  pending:         'text-muted-foreground',
+  confirmed:       'text-foreground/80',
+  sourcing:        'text-foreground/80',
+  shipping:        'text-foreground',
+  awaiting_pickup: 'text-foreground',
+  delivered:       'text-muted-foreground',
+  cancelled:       'text-destructive',
+};
+
+const statusDot = {
+  pending:         'bg-muted-foreground/50',
+  confirmed:       'bg-foreground/60',
+  sourcing:        'bg-foreground/60',
+  shipping:        'bg-foreground',
+  awaiting_pickup: 'bg-foreground',
+  delivered:       'bg-muted-foreground/40',
+  cancelled:       'bg-destructive',
 };
 
 export default function OrderRow({ order, onClick }) {
@@ -22,47 +39,65 @@ export default function OrderRow({ order, onClick }) {
   const etaHint = getOrderEtaHint(order, lang);
   const priceStr =
     order.price != null && order.price !== ''
-      ? `${Number(order.price).toLocaleString()} ${order.currency || '₽'}`
+      ? `${Number(order.price).toLocaleString('ru-RU')} ${order.currency || '₽'}`
       : null;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left rounded-xl border border-border/25 bg-muted/10 hover:bg-muted/25 active:scale-[0.99] transition-all p-2.5 mb-2 last:mb-0"
+      className={cn(
+        'w-full text-left rounded-2xl p-3 mb-2 last:mb-0',
+        'lg-subtle',
+        'transition-all duration-200 active:scale-[0.99]',
+        'hover:bg-foreground/[0.04]',
+      )}
     >
-      <div className="flex gap-2.5">
-        <div className="w-11 h-11 shrink-0 rounded-lg bg-muted/40 overflow-hidden flex items-center justify-center p-0.5">
+      <div className="flex gap-3">
+        <div className="w-12 h-12 shrink-0 rounded-xl lg-subtle overflow-hidden flex items-center justify-center p-1">
           {order.image_url ? (
             <img
               src={order.image_url}
               alt=""
               className="max-h-full max-w-full w-auto h-auto object-contain"
             />
-          ) : null}
+          ) : (
+            <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+          )}
         </div>
 
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium leading-tight line-clamp-2">{title}</p>
-            <Badge
-              variant="outline"
-              className={`shrink-0 text-[9px] px-1.5 py-0 h-5 font-normal border ${statusTone[order.status] || ''}`}
+            <p className="text-[13px] font-normal leading-tight line-clamp-2 tracking-[-0.01em]">
+              {title}
+            </p>
+            <div
+              className={cn(
+                'shrink-0 flex items-center gap-1.5 text-[9px] tracking-[0.14em] uppercase',
+                statusTone[order.status] || 'text-muted-foreground',
+              )}
             >
+              <span
+                className={cn(
+                  'inline-block w-1.5 h-1.5 rounded-full',
+                  statusDot[order.status] || 'bg-muted-foreground/40',
+                )}
+              />
               {statusText}
-            </Badge>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
             {meta ? <span className="line-clamp-1">{meta}</span> : null}
             {priceStr ? (
-              <span className="text-foreground/90 tabular-nums font-medium">{priceStr}</span>
+              <span className="text-foreground/95 tabular-nums lg-number font-light">
+                {priceStr}
+              </span>
             ) : null}
           </div>
 
           {etaHint ? (
-            <p className="text-[10px] text-muted-foreground/90 leading-snug flex items-center gap-1">
-              <span className="inline-block w-1 h-1 rounded-full bg-muted-foreground/50 shrink-0" />
+            <p className="text-[10px] text-muted-foreground/85 leading-snug">
               {etaHint}
             </p>
           ) : null}

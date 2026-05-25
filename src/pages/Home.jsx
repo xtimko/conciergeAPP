@@ -1,6 +1,7 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { api } from '@/api/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/lib/ThemeContext';
 import { t } from '@/lib/i18n';
 import BonusCard from '@/components/home/BonusCard';
@@ -12,7 +13,6 @@ import { cn } from '@/lib/utils';
 export default function Home() {
   const { lang, theme } = useTheme();
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const queryClient = useQueryClient();
 
   const { data: user } = useQuery({
     queryKey: ['me'],
@@ -34,39 +34,38 @@ export default function Home() {
     );
 
   return (
-    <div className="px-4 pt-6 space-y-5">
+    <div className="px-4 pt-8 space-y-6">
+      {/* Hero greeting */}
       {displayName && (
-        <div
-          className="text-center"
-          style={{ fontFamily: "'Montserrat', sans-serif" }}
-        >
-          <p className="text-[11px] font-normal tracking-[0.2em] uppercase text-muted-foreground">
-            {t('welcome', lang)},
+        <div className="text-center lg-enter">
+          <p className="text-[10px] font-medium tracking-[0.24em] uppercase text-muted-foreground lg-eyebrow">
+            {t('welcome', lang)}
           </p>
-          <p className="text-base font-normal tracking-[0.08em] text-foreground mt-1.5">
-            {displayName}!
+          <p className="text-[1.75rem] leading-tight font-extralight tracking-[-0.01em] text-foreground mt-2 lg-display">
+            {displayName}
           </p>
         </div>
       )}
 
       <BonusCard balance={user?.bonus_balance} />
 
+      {/* CTA: написать в Telegram */}
       <a
         href="https://t.me/waitanhour"
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
-          'relative glass glass-hover rounded-[1.35rem] overflow-hidden',
-          'flex w-full max-w-full items-center justify-center gap-2 px-5 py-4 min-w-0',
-          'text-xs font-medium tracking-wide text-foreground text-center',
-          'cursor-pointer active:scale-[0.98] transition-transform',
+          'relative glass glass-hover rounded-[1.35rem] overflow-hidden block',
+          'flex w-full max-w-full items-center justify-center gap-2.5 px-5 py-4 min-w-0',
+          'text-[11px] font-medium tracking-[0.16em] uppercase text-foreground/95 text-center',
+          'transition-transform active:scale-[0.985]',
           'motion-reduce:transition-none motion-reduce:active:scale-100',
         )}
       >
         <svg
           className={cn(
-            'w-4 h-4 shrink-0',
-            theme === 'dark' ? 'text-white' : 'text-black',
+            'w-[1.05rem] h-[1.05rem] shrink-0',
+            theme === 'dark' ? 'text-white/90' : 'text-black/85',
           )}
           viewBox="0 0 24 24"
           xmlns="http://www.w3.org/2000/svg"
@@ -80,12 +79,20 @@ export default function Home() {
         {t('writeForOrder', lang)}
       </a>
 
-      <GlassCard className="p-4">
-        <h3 className="text-sm font-medium tracking-wide mb-3">
-          {t('activeOrders', lang)}
-        </h3>
+      {/* Активные заказы */}
+      <GlassCard hover={false} className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[10px] font-medium tracking-[0.2em] uppercase text-muted-foreground lg-eyebrow">
+            {t('activeOrders', lang)}
+          </h3>
+          {activeOrders.length > 0 && (
+            <span className="text-[11px] tabular-nums text-muted-foreground lg-number">
+              {activeOrders.length}
+            </span>
+          )}
+        </div>
         {activeOrders.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-4">
+          <p className="text-xs text-muted-foreground text-center py-6 font-light">
             {t('noOrders', lang)}
           </p>
         ) : (
@@ -97,19 +104,26 @@ export default function Home() {
                 onClick={() => setSelectedOrder(order)}
               />
             ))}
-            <p className="text-[10px] text-muted-foreground text-center mt-3">
-              {t('tapForDetails', lang)}
-            </p>
           </div>
         )}
       </GlassCard>
 
-      <GlassCard className="p-4">
-        <h3 className="text-sm font-medium tracking-wide mb-3">
-          {t('completedOrders', lang)}
-        </h3>
+      {/* Завершённые заказы */}
+      <GlassCard hover={false} className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[10px] font-medium tracking-[0.2em] uppercase text-muted-foreground lg-eyebrow">
+            {t('completedOrders', lang)}
+          </h3>
+          {completedOrders.length > 0 && (
+            <span className="text-[11px] tabular-nums text-muted-foreground lg-number">
+              {completedOrders.length}
+            </span>
+          )}
+        </div>
         {completedOrders.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-3">{t('noCompletedOrders', lang)}</p>
+          <p className="text-xs text-muted-foreground text-center py-6 font-light">
+            {t('noCompletedOrders', lang)}
+          </p>
         ) : (
           <div>
             {completedOrders.map((order) => (
@@ -119,9 +133,6 @@ export default function Home() {
                 onClick={() => setSelectedOrder(order)}
               />
             ))}
-            <p className="text-[10px] text-muted-foreground text-center mt-3">
-              {t('tapForDetails', lang)}
-            </p>
           </div>
         )}
       </GlassCard>
