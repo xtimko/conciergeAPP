@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Toaster } from 'sonner';
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -13,18 +14,25 @@ import { api } from '@/api/client';
 import ClientLayout from '@/components/layout/ClientLayout';
 import AdminLayout from '@/components/layout/AdminLayout';
 
-// Client pages
+// Client pages — eager (всегда нужны)
 import Home from '@/pages/Home';
 import Profile from '@/pages/Profile';
 import Referral from '@/pages/Referral';
 import Settings from '@/pages/Settings';
 import Onboarding from '@/pages/Onboarding';
 
-// Admin pages
-import AdminDashboard from '@/pages/AdminDashboard';
-import AdminOrders from '@/pages/AdminOrders';
-import AdminClients from '@/pages/AdminClients';
-import AdminFinance from '@/pages/AdminFinance';
+// Admin pages — lazy: грузятся только когда заходит админ
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
+const AdminOrders = lazy(() => import('@/pages/AdminOrders'));
+const AdminClients = lazy(() => import('@/pages/AdminClients'));
+const AdminFinance = lazy(() => import('@/pages/AdminFinance'));
+
+/** Спиннер для Suspense fallback на админских страницах. */
+const AdminPageFallback = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-5 h-5 border-2 border-muted-foreground border-t-foreground rounded-full animate-spin" />
+  </div>
+);
 
 function ProfileGate({ children }) {
   const location = useLocation();
@@ -76,10 +84,38 @@ const AppRoutes = () => {
       </Route>
       {isAdmin && (
         <Route element={<AdminLayout />}>
-          <Route path="/AdminDashboard" element={<AdminDashboard />} />
-          <Route path="/AdminOrders" element={<AdminOrders />} />
-          <Route path="/AdminFinance" element={<AdminFinance />} />
-          <Route path="/AdminClients" element={<AdminClients />} />
+          <Route
+            path="/AdminDashboard"
+            element={
+              <Suspense fallback={<AdminPageFallback />}>
+                <AdminDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/AdminOrders"
+            element={
+              <Suspense fallback={<AdminPageFallback />}>
+                <AdminOrders />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/AdminFinance"
+            element={
+              <Suspense fallback={<AdminPageFallback />}>
+                <AdminFinance />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/AdminClients"
+            element={
+              <Suspense fallback={<AdminPageFallback />}>
+                <AdminClients />
+              </Suspense>
+            }
+          />
         </Route>
       )}
       <Route path="*" element={<PageNotFound />} />

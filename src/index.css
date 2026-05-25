@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Inter и Montserrat подгружаются в index.html через <link>
+   с preconnect — это быстрее чем @import из CSS, т.к. браузер не
+   должен сначала спарсить CSS чтобы найти зависимость от шрифтов. */
 
 @tailwind base;
 @tailwind components;
