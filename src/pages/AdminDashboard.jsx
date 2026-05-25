@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import GlassCard from '@/components/ui/GlassCard';
@@ -8,8 +8,11 @@ import { getClientDisplayHandle, getClientPrimaryName } from '@/lib/clientDispla
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { getStatusLabel } from '@/lib/i18n';
 import { orderPriceRub, orderProfitRub } from '@/lib/orderFinanceRub';
+import OrderDetailSheet from '@/components/orders/OrderDetailSheet';
 
 export default function AdminDashboard() {
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
   const { data: orders = [], isPending: ordersLoading } = useQuery({
     queryKey: ['allOrders'],
     queryFn: () => api.entities.Order.list(),
@@ -109,8 +112,10 @@ export default function AdminDashboard() {
             ))}
       </div>
 
-      <GlassCard className="p-5">
-        <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Последние заказы</h3>
+      <GlassCard hover={false} className="p-5">
+        <h3 className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 lg-eyebrow">
+          Последние заказы
+        </h3>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -134,12 +139,14 @@ export default function AdminDashboard() {
             const profitDel =
               order.status === 'delivered' ? Math.round(orderProfitRub(order)) : null;
             return (
-              <div
+              <button
                 key={order.id}
-                className="flex items-center justify-between gap-2 py-2 border-b border-border/10 last:border-0"
+                type="button"
+                onClick={() => setSelectedOrder(order)}
+                className="w-full flex items-center justify-between gap-2 py-2.5 border-b border-border/10 last:border-0 text-left transition-all active:scale-[0.99] hover:bg-foreground/[0.03] rounded-lg px-2 -mx-2"
               >
                 <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground/90 font-mono truncate mb-0.5">
+                  <p className="text-[10px] text-muted-foreground/90 font-mono truncate mb-0.5 lg-number">
                     {formatOrderDisplayId(order)}
                   </p>
                   <p className="text-sm font-light truncate">{order.item_name}</p>
@@ -148,16 +155,23 @@ export default function AdminDashboard() {
                 <span className="text-xs text-muted-foreground text-right shrink-0 whitespace-nowrap">
                   {getStatusLabel(order.status, 'ru')}
                   {profitDel != null ? (
-                    <span className="text-emerald-500/90 font-medium tabular-nums ml-1.5">
+                    <span className="text-emerald-500/90 font-medium tabular-nums ml-1.5 lg-number">
                       +{profitDel.toLocaleString('ru-RU')}
                     </span>
                   ) : null}
                 </span>
-              </div>
+              </button>
             );
           })
         )}
       </GlassCard>
+
+      <OrderDetailSheet
+        order={selectedOrder}
+        open={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        readOnly={false}
+      />
     </div>
   );
 }

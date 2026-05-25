@@ -59,17 +59,22 @@ export default function Settings() {
   };
 
   return (
-    <div className="px-4 pt-6 space-y-5">
-      <div className="flex justify-center">
-        <div className="w-14 h-14 rounded-full glass flex items-center justify-center">
-          <SettingsIcon className="w-6 h-6 text-muted-foreground" strokeWidth={1.25} />
+    <div className="px-4 pt-8 space-y-5">
+      <div className="flex flex-col items-center gap-3 lg-enter">
+        <div className="w-16 h-16 rounded-full glass flex items-center justify-center">
+          <SettingsIcon className="w-6 h-6 text-foreground/85" strokeWidth={1.15} />
         </div>
+        <p className="text-[1.125rem] font-extralight tracking-[-0.01em] lg-display text-center">
+          {lang === 'ru' ? 'Настройки' : 'Settings'}
+        </p>
       </div>
 
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Sun className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('theme', lang)}</span>
+      <GlassCard hover={false} className="p-5">
+        <div className="flex items-center gap-2.5 mb-4">
+          <Sun className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium lg-eyebrow">
+            {t('theme', lang)}
+          </span>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button
@@ -101,10 +106,12 @@ export default function Settings() {
         </div>
       </GlassCard>
 
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Bell className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('notifySection', lang)}</span>
+      <GlassCard hover={false} className="p-5">
+        <div className="flex items-center gap-2.5 mb-4">
+          <Bell className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium lg-eyebrow">
+            {t('notifySection', lang)}
+          </span>
         </div>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -138,10 +145,12 @@ export default function Settings() {
         </div>
       </GlassCard>
 
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Globe className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t('language', lang)}</span>
+      <GlassCard hover={false} className="p-5">
+        <div className="flex items-center gap-2.5 mb-4">
+          <Globe className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.5} />
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium lg-eyebrow">
+            {t('language', lang)}
+          </span>
         </div>
         <div className="flex gap-2">
           <Button

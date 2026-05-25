@@ -9,7 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw, Trash2 } from 'lucide-react';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '@/components/ui/accordion';
+import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw, Trash2, Zap, LayoutList } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
@@ -73,6 +79,62 @@ const emptyOrder = {
   fx_rate_to_rub: '',
 };
 
+/** localStorage ключи для запоминания последних значений и черновика. */
+const LS_KEYS = {
+  LAST_CURRENCY: 'concierge_admin_last_currency',
+  LAST_CATEGORY: 'concierge_admin_last_category',
+  LAST_ESTIMATED: 'concierge_admin_last_estimated_days',
+  DRAFT: 'concierge_admin_order_draft',
+  QUICK_MODE: 'concierge_admin_quick_mode',
+};
+
+function readLs(key, fallback = '') {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : v;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLs(key, value) {
+  try {
+    if (value == null || value === '') localStorage.removeItem(key);
+    else localStorage.setItem(key, String(value));
+  } catch {
+    /* noop */
+  }
+}
+
+/** Smart-defaults: emptyOrder + последние выбранные значения. */
+function buildInitialOrder() {
+  const currency = readLs(LS_KEYS.LAST_CURRENCY, 'RUB');
+  const category = readLs(LS_KEYS.LAST_CATEGORY, 'footwear');
+  const estimated = readLs(LS_KEYS.LAST_ESTIMATED, '');
+  return {
+    ...emptyOrder,
+    currency: ['RUB', 'USD', 'EUR'].includes(currency) ? currency : 'RUB',
+    item_category: ['footwear', 'clothing', 'accessories', 'bags', 'other'].includes(category)
+      ? category
+      : 'footwear',
+    estimated_days: estimated,
+  };
+}
+
+/** Считаем форму непустой (для черновика). */
+function isFormDirty(f) {
+  if (!f) return false;
+  return Boolean(
+    (f.item_name && f.item_name.trim()) ||
+      (f.client_name && f.client_name.trim()) ||
+      (f.brand && f.brand.trim()) ||
+      (f.price && String(f.price).trim()) ||
+      (f.cost_price && String(f.cost_price).trim()) ||
+      (f.notes && f.notes.trim()) ||
+      (f.image_url && f.image_url.trim()),
+  );
+}
+
 function formatClientLine(c) {
   const name = c.first_name
     ? `${c.first_name} ${c.last_name || ''}`.trim()
@@ -91,6 +153,10 @@ export default function AdminOrders() {
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [clientAddress, setClientAddress] = useState('');
   const [addrCopied, setAddrCopied] = useState(false);
+  /** «Быстрый» режим: только клиент + товар + цена + валюта. */
+  const [quickMode, setQuickMode] = useState(() => readLs(LS_KEYS.QUICK_MODE) === 'true');
+  /** Диалог восстановления черновика — { form } | null. */
+  const [draftPrompt, setDraftPrompt] = useState(null);
   /** all | active | completed */
   const [orderFilter, setOrderFilter] = useState('all');
   /** быстрая смена статуса */
@@ -244,7 +310,6 @@ export default function AdminOrders() {
 
   const openNew = useCallback(() => {
     setEditingOrder(null);
-    setForm(emptyOrder);
     setClientSearch('');
     setSelectedClientId(null);
     setClientAddress('');
@@ -254,7 +319,60 @@ export default function AdminOrders() {
         ? crypto.randomUUID()
         : `idem_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`,
     );
+    // Проверяем черновик
+    try {
+      const raw = localStorage.getItem(LS_KEYS.DRAFT);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (isFormDirty(draft)) {
+          setDraftPrompt(draft);
+          setForm(buildInitialOrder());
+          setDialogOpen(true);
+          return;
+        }
+      }
+    } catch {
+      /* noop */
+    }
+    setForm(buildInitialOrder());
     setDialogOpen(true);
+  }, []);
+
+  /** Закрыть диалог: если есть несохранённый dirty form — сохранить черновик. */
+  const handleDialogClose = useCallback(() => {
+    if (!editingOrder && isFormDirty(form)) {
+      try {
+        localStorage.setItem(LS_KEYS.DRAFT, JSON.stringify(form));
+      } catch {
+        /* noop */
+      }
+    }
+    setDialogOpen(false);
+  }, [editingOrder, form]);
+
+  const acceptDraft = useCallback(() => {
+    if (draftPrompt) {
+      setForm(draftPrompt);
+      // client_email из черновика подставим тоже, но реселектить клиента надо вручную
+      setDraftPrompt(null);
+    }
+  }, [draftPrompt]);
+
+  const dismissDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(LS_KEYS.DRAFT);
+    } catch {
+      /* noop */
+    }
+    setDraftPrompt(null);
+  }, []);
+
+  const toggleQuickMode = useCallback(() => {
+    setQuickMode((v) => {
+      const next = !v;
+      writeLs(LS_KEYS.QUICK_MODE, next ? 'true' : '');
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -393,6 +511,15 @@ export default function AdminOrders() {
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['allOrders'] });
       queryClient.invalidateQueries({ queryKey: ['allClients'] });
+      // Запоминаем последние значения и чистим черновик
+      writeLs(LS_KEYS.LAST_CURRENCY, form.currency);
+      writeLs(LS_KEYS.LAST_CATEGORY, form.item_category);
+      writeLs(LS_KEYS.LAST_ESTIMATED, form.estimated_days);
+      try {
+        localStorage.removeItem(LS_KEYS.DRAFT);
+      } catch {
+        /* noop */
+      }
       setDialogOpen(false);
     } catch (e) {
       hapticError();
@@ -841,16 +968,38 @@ export default function AdminOrders() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(v) => (v ? setDialogOpen(true) : handleDialogClose())}>
         <DialogContent
           className="admin-order-sheet border-border/60 bg-background p-0"
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="shrink-0 space-y-0 border-b border-border/10 px-5 pb-3 pr-12 pt-5 text-left">
-            <DialogTitle className="text-sm font-medium tracking-wide">
-              {editingOrder ? 'Редактирование заказа' : 'Новый заказ'}
-            </DialogTitle>
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle className="text-sm font-medium tracking-wide">
+                {editingOrder ? 'Редактирование заказа' : 'Новый заказ'}
+              </DialogTitle>
+              {!editingOrder && (
+                <button
+                  type="button"
+                  onClick={toggleQuickMode}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.14em] font-medium lg-subtle text-muted-foreground hover:text-foreground transition-colors active:scale-[0.97]"
+                  title={quickMode ? 'Переключить на полную форму' : 'Быстрое создание'}
+                >
+                  {quickMode ? (
+                    <>
+                      <LayoutList className="w-3 h-3" />
+                      Полная
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3" />
+                      Быстро
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </DialogHeader>
           <div className="relative z-[10050] shrink-0 px-5 pt-3">
             <ClientEmailAutocomplete
@@ -866,274 +1015,396 @@ export default function AdminOrders() {
               autoFocus={!editingOrder}
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-2">
-            <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <Label className="text-xs">Товар *</Label>
-              <Input
-                value={form.item_name}
-                onChange={(e) => updateField('item_name', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-                enterKeyHint="next"
-                placeholder="Название, модель, цвет…"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Имя клиента</Label>
-              <Input
-                value={form.client_name}
-                onChange={(e) => updateField('client_name', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-                enterKeyHint="next"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Бренд</Label>
-              <Input
-                value={form.brand}
-                onChange={(e) => updateField('brand', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-                enterKeyHint="next"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Размер</Label>
-              <Input
-                value={form.item_size}
-                onChange={(e) => updateField('item_size', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Категория</Label>
-              <Select value={form.item_category} onValueChange={(v) => updateField('item_category', v)}>
-                <SelectTrigger className="mt-1 bg-transparent border-border/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Цена</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                value={form.price}
-                onChange={(e) => updateField('price', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-                enterKeyHint="next"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Себестоимость</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                value={form.cost_price}
-                onChange={(e) => updateField('cost_price', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-                placeholder="0"
-                enterKeyHint="next"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Валюта</Label>
-              <Select
-                value={form.currency}
-                onValueChange={(v) =>
-                  setForm((p) => ({
-                    ...p,
-                    currency: v,
-                    fx_rate_to_rub: v === 'RUB' ? '' : p.fx_rate_to_rub,
-                  }))
-                }
-              >
-                <SelectTrigger className="mt-1 bg-transparent border-border/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {(form.currency === 'USD' || form.currency === 'EUR') && (
-              <div className="col-span-2">
-                <Label className="text-xs">Курс к ₽ (за 1 {form.currency})</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="any"
-                  value={form.fx_rate_to_rub}
-                  onChange={(e) => updateField('fx_rate_to_rub', e.target.value)}
-                  className="mt-1 bg-transparent border-border/30"
-                  placeholder="Например 92.5"
-                  enterKeyHint="next"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
-                  Для клиента цена остаётся в {form.currency}. В финансах и CSV суммы пересчитываются в
-                  рубли.
-                </p>
-              </div>
-            )}
-            <div>
-              <Label className="text-xs">Статус</Label>
-              <Select value={form.status} onValueChange={(v) => updateField('status', v)}>
-                <SelectTrigger className="mt-1 bg-transparent border-border/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {getStatusLabel(s, 'ru')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <Label className="text-xs">Срок доставки (дн.)</Label>
-              <Input
-                type="text"
-                placeholder=""
-                value={form.estimated_days}
-                onChange={(e) => updateField('estimated_days', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
-                Через дефис (например 7-14) — примерный диапазон; клиент увидит окно дат и формулировки
-                «примерно».
-              </p>
-            </div>
-
-            <ImageUploadField value={form.image_url} onChange={(v) => updateField('image_url', v)} />
-
-            {clientAddress && (
-              <div className="col-span-2">
-                <Label className="text-xs">Адрес доставки клиента</Label>
-                <div className="mt-1 flex items-center gap-2 p-2 rounded-lg glass border border-border/20">
-                  <span className="text-sm font-light flex-1 break-all">{clientAddress}</span>
-                  <button
-                    type="button"
-                    onClick={copyAddress}
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-2"
-                  >
-                    {addrCopied ? (
-                      <Check className="w-3.5 h-3.5 text-green-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="col-span-2">
-              <Label className="text-xs">Примечания</Label>
-              <Input
-                value={form.notes}
-                onChange={(e) => updateField('notes', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-              />
-            </div>
-
-            <div className="col-span-2 border-t border-border/20 pt-3 mt-1">
-              <p className="text-xs font-medium mb-2">Баллы по заказу</p>
-              {selectedClientId ? (
-                <p className="text-xs text-muted-foreground mb-3">
-                  Баланс клиента: <span className="text-foreground font-medium">{clientBonusBalance}</span>{' '}
-                  баллов
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground mb-3">Выберите клиента, чтобы видеть баланс</p>
-              )}
-            </div>
-
-            {hasReferrer && (
-              <>
-                <div className="col-span-2 rounded-lg border border-border/20 p-3 space-y-1">
-                  <p className="text-xs font-medium">Реферер (пригласивший)</p>
-                  <p className="text-sm font-light">
-                    {referrerUser?.first_name
-                      ? `${referrerUser.first_name} ${referrerUser.last_name || ''}`.trim()
-                      : referrerUser?.full_name || '—'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{referrerUser?.phone || '—'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    TG id: {referrerUser?.telegram_id || '—'}
-                    {referrerUser?.telegram_username
-                      ? ` · @${referrerUser.telegram_username.replace(/^@/, '')}`
-                      : ''}
-                  </p>
-                </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3">
+            {/* Быстрый режим: минимум полей для создания */}
+            {quickMode && !editingOrder ? (
+              <div className="space-y-3">
                 <div>
-                  <Label className="text-xs">Друг — баллы владельцу реф. кода</Label>
+                  <Label className="text-xs">Товар *</Label>
                   <Input
-                    type="number"
-                    inputMode="numeric"
-                    value={form.referrer_bonus}
-                    onChange={(e) => updateField('referrer_bonus', e.target.value)}
+                    value={form.item_name}
+                    onChange={(e) => updateField('item_name', e.target.value)}
                     className="mt-1 bg-transparent border-border/30"
                     enterKeyHint="next"
+                    placeholder="Название, модель, цвет…"
                   />
                 </div>
-              </>
-            )}
-
-            <div className="col-span-2 flex flex-wrap gap-2 items-center">
-              <span className="text-xs text-muted-foreground">Заказчик:</span>
-              <div className="flex rounded-lg border border-border/30 overflow-hidden">
-                <button
-                  type="button"
-                  className={`px-3 py-1.5 text-xs ${
-                    form.client_bonus_mode !== 'subtract' ? 'bg-foreground text-background' : 'glass'
-                  }`}
-                  onClick={() => updateField('client_bonus_mode', 'add')}
-                >
-                  Накопить
-                </button>
-                <button
-                  type="button"
-                  className={`px-3 py-1.5 text-xs ${
-                    form.client_bonus_mode === 'subtract' ? 'bg-foreground text-background' : 'glass'
-                  }`}
-                  onClick={() => updateField('client_bonus_mode', 'subtract')}
-                >
-                  Списать
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Цена</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={form.price}
+                      onChange={(e) => updateField('price', e.target.value)}
+                      className="mt-1 bg-transparent border-border/30"
+                      enterKeyHint="next"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Валюта</Label>
+                    <Select
+                      value={form.currency}
+                      onValueChange={(v) =>
+                        setForm((p) => ({
+                          ...p,
+                          currency: v,
+                          fx_rate_to_rub: v === 'RUB' ? '' : p.fx_rate_to_rub,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1 bg-transparent border-border/30">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {(form.currency === 'USD' || form.currency === 'EUR') && (
+                  <div>
+                    <Label className="text-xs">Курс к ₽ (за 1 {form.currency})</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="any"
+                      value={form.fx_rate_to_rub}
+                      onChange={(e) => updateField('fx_rate_to_rub', e.target.value)}
+                      className="mt-1 bg-transparent border-border/30"
+                      placeholder="Например 92.5"
+                      enterKeyHint="next"
+                    />
+                  </div>
+                )}
+                <div className="lg-subtle rounded-xl p-3 text-[11px] text-muted-foreground leading-relaxed">
+                  Заказ создастся со статусом «Подтверждён». Остальные поля доуточнишь в режиме «Полная».
+                </div>
               </div>
-            </div>
-            <div className="col-span-2">
-              <Label className="text-xs">
-                {form.client_bonus_mode === 'subtract'
-                  ? 'Сумма списания с заказчика (при доставке)'
-                  : 'Сумма начисления заказчику (при доставке)'}
-              </Label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={form.referral_bonus}
-                onChange={(e) => updateField('referral_bonus', e.target.value)}
-                className="mt-1 bg-transparent border-border/30"
-                enterKeyHint="done"
-              />
-            </div>
-          </div>
+            ) : (
+              <Accordion type="multiple" defaultValue={['main']} className="w-full">
+                <AccordionItem value="main" className="border-border/20">
+                  <AccordionTrigger className="text-[10px] uppercase tracking-[0.18em] font-medium text-foreground/90 lg-eyebrow !py-3">
+                    Основное
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="col-span-2">
+                        <Label className="text-xs">Товар *</Label>
+                        <Input
+                          value={form.item_name}
+                          onChange={(e) => updateField('item_name', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                          enterKeyHint="next"
+                          placeholder="Название, модель, цвет…"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Цена</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          value={form.price}
+                          onChange={(e) => updateField('price', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                          enterKeyHint="next"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Валюта</Label>
+                        <Select
+                          value={form.currency}
+                          onValueChange={(v) =>
+                            setForm((p) => ({
+                              ...p,
+                              currency: v,
+                              fx_rate_to_rub: v === 'RUB' ? '' : p.fx_rate_to_rub,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="mt-1 bg-transparent border-border/30">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CURRENCIES.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(form.currency === 'USD' || form.currency === 'EUR') && (
+                        <div className="col-span-2">
+                          <Label className="text-xs">Курс к ₽ (за 1 {form.currency})</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            step="any"
+                            value={form.fx_rate_to_rub}
+                            onChange={(e) => updateField('fx_rate_to_rub', e.target.value)}
+                            className="mt-1 bg-transparent border-border/30"
+                            placeholder="Например 92.5"
+                            enterKeyHint="next"
+                          />
+                          <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                            Для клиента цена остаётся в {form.currency}. В финансах и CSV суммы пересчитываются в рубли.
+                          </p>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <Label className="text-xs">Статус</Label>
+                        <Select value={form.status} onValueChange={(v) => updateField('status', v)}>
+                          <SelectTrigger className="mt-1 bg-transparent border-border/30">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUSES.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {getStatusLabel(s, 'ru')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="finance" className="border-border/20">
+                  <AccordionTrigger className="text-[10px] uppercase tracking-[0.18em] font-medium text-muted-foreground lg-eyebrow !py-3">
+                    Финансы
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pt-1">
+                      <Label className="text-xs">Себестоимость</Label>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        value={form.cost_price}
+                        onChange={(e) => updateField('cost_price', e.target.value)}
+                        className="mt-1 bg-transparent border-border/30"
+                        placeholder="0"
+                        enterKeyHint="next"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                        Не видно клиенту. Используется для расчёта прибыли в финансах и CSV.
+                      </p>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="details" className="border-border/20">
+                  <AccordionTrigger className="text-[10px] uppercase tracking-[0.18em] font-medium text-muted-foreground lg-eyebrow !py-3">
+                    Детали товара
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <Label className="text-xs">Бренд</Label>
+                        <Input
+                          value={form.brand}
+                          onChange={(e) => updateField('brand', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                          enterKeyHint="next"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Размер</Label>
+                        <Input
+                          value={form.item_size}
+                          onChange={(e) => updateField('item_size', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-xs">Категория</Label>
+                        <Select value={form.item_category} onValueChange={(v) => updateField('item_category', v)}>
+                          <SelectTrigger className="mt-1 bg-transparent border-border/30">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-2">
+                        <ImageUploadField value={form.image_url} onChange={(v) => updateField('image_url', v)} />
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="delivery" className="border-border/20">
+                  <AccordionTrigger className="text-[10px] uppercase tracking-[0.18em] font-medium text-muted-foreground lg-eyebrow !py-3">
+                    Доставка
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <Label className="text-xs">Срок доставки (дн.)</Label>
+                        <Input
+                          type="text"
+                          placeholder=""
+                          value={form.estimated_days}
+                          onChange={(e) => updateField('estimated_days', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+                          Через дефис (например 7-14) — диапазон; клиент увидит окно дат и формулировку «примерно».
+                        </p>
+                      </div>
+                      {clientAddress && (
+                        <div>
+                          <Label className="text-xs">Адрес доставки клиента</Label>
+                          <div className="mt-1 flex items-center gap-2 p-2 rounded-lg glass">
+                            <span className="text-sm font-light flex-1 break-all">{clientAddress}</span>
+                            <button
+                              type="button"
+                              onClick={copyAddress}
+                              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-2"
+                            >
+                              {addrCopied ? (
+                                <Check className="w-3.5 h-3.5 text-green-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-xs">Примечания</Label>
+                        <Input
+                          value={form.notes}
+                          onChange={(e) => updateField('notes', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                        />
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="bonuses" className="border-border/20">
+                  <AccordionTrigger className="text-[10px] uppercase tracking-[0.18em] font-medium text-muted-foreground lg-eyebrow !py-3">
+                    Клиент и бонусы
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <Label className="text-xs">Имя клиента (для заказа)</Label>
+                        <Input
+                          value={form.client_name}
+                          onChange={(e) => updateField('client_name', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                          enterKeyHint="next"
+                          placeholder="Авто-заполнено из карточки клиента"
+                        />
+                      </div>
+
+                      <div className="rounded-lg lg-subtle p-3">
+                        {selectedClientId ? (
+                          <p className="text-xs text-muted-foreground">
+                            Баланс клиента:{' '}
+                            <span className="text-foreground font-medium tabular-nums lg-number">
+                              {clientBonusBalance}
+                            </span>{' '}
+                            баллов
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Выберите клиента, чтобы видеть баланс</p>
+                        )}
+                      </div>
+
+                      {hasReferrer && (
+                        <>
+                          <div className="rounded-lg lg-subtle p-3 space-y-1">
+                            <p className="text-xs font-medium">Реферер (пригласивший)</p>
+                            <p className="text-sm font-light">
+                              {referrerUser?.first_name
+                                ? `${referrerUser.first_name} ${referrerUser.last_name || ''}`.trim()
+                                : referrerUser?.full_name || '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{referrerUser?.phone || '—'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              TG id: {referrerUser?.telegram_id || '—'}
+                              {referrerUser?.telegram_username
+                                ? ` · @${referrerUser.telegram_username.replace(/^@/, '')}`
+                                : ''}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Друг — баллы владельцу реф. кода</Label>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={form.referrer_bonus}
+                              onChange={(e) => updateField('referrer_bonus', e.target.value)}
+                              className="mt-1 bg-transparent border-border/30"
+                              enterKeyHint="next"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="text-xs text-muted-foreground">Заказчик:</span>
+                        <div className="flex rounded-lg overflow-hidden lg-subtle">
+                          <button
+                            type="button"
+                            className={`px-3 py-1.5 text-xs ${
+                              form.client_bonus_mode !== 'subtract' ? 'bg-foreground text-background' : ''
+                            }`}
+                            onClick={() => updateField('client_bonus_mode', 'add')}
+                          >
+                            Накопить
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-3 py-1.5 text-xs ${
+                              form.client_bonus_mode === 'subtract' ? 'bg-foreground text-background' : ''
+                            }`}
+                            onClick={() => updateField('client_bonus_mode', 'subtract')}
+                          >
+                            Списать
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">
+                          {form.client_bonus_mode === 'subtract'
+                            ? 'Сумма списания с заказчика (при доставке)'
+                            : 'Сумма начисления заказчику (при доставке)'}
+                        </Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={form.referral_bonus}
+                          onChange={(e) => updateField('referral_bonus', e.target.value)}
+                          className="mt-1 bg-transparent border-border/30"
+                          enterKeyHint="done"
+                        />
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
           </div>
           <div className="flex shrink-0 justify-end gap-2 border-t border-border/10 bg-background px-5 py-3">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="glass border-border/30">
+            <Button variant="outline" onClick={handleDialogClose} className="glass border-border/30">
               Отмена
             </Button>
             <Button
@@ -1146,6 +1417,27 @@ export default function AdminOrders() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!draftPrompt} onOpenChange={(open) => !open && dismissDraft()}>
+        <AlertDialogContent className="border-border/60 bg-background">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">Восстановить черновик?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Есть незавершённый черновик предыдущего заказа.
+              {draftPrompt?.item_name ? ` Товар: «${draftPrompt.item_name}».` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={dismissDraft}>Очистить</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={acceptDraft}
+              className="bg-foreground text-background hover:bg-foreground/90"
+            >
+              Восстановить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent className="border-border/60 bg-background">
