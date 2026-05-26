@@ -298,6 +298,43 @@ export async function editTelegramMessageCaption(botToken, chatId, messageId, ca
 }
 
 /**
+ * Подтвердить callback_query от inline-кнопки — Telegram уберёт «загрузка» индикатор у клиента.
+ * Можно показать всплывающий тост через `text` (короткий). Если text не задан — просто закрыть индикатор.
+ * @returns {Promise<boolean>}
+ */
+export async function answerCallbackQuery(botToken, callbackQueryId, options = {}) {
+  if (!botToken || !callbackQueryId) return false;
+  const url = `https://api.telegram.org/bot${botToken}/answerCallbackQuery`;
+  const payload = {
+    callback_query_id: String(callbackQueryId),
+    ...(options.text ? { text: String(options.text).slice(0, 200) } : {}),
+    ...(options.showAlert ? { show_alert: true } : {}),
+  };
+  const dispatcher = getTelegramProxyDispatcher();
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 15_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {}),
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn("[telegramBotApi] answerCallbackQuery failed:", data?.description || res.status);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn("[telegramBotApi] answerCallbackQuery error:", e?.message || e);
+    return false;
+  }
+}
+
+/**
  * Удалить сообщение бота в чате (например перед отправкой нового статуса — тогда клиент получит push).
  * @returns {Promise<boolean>}
  */

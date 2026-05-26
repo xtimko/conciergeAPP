@@ -16,8 +16,17 @@ import {
   deriveClientTelegramIdFromBody
 } from "./telegramNotify.js";
 import { mergeNotifyPreferences } from "./clientNotifications.js";
-import { sendTelegramWelcomeWithWebApp, sendTelegramMessage } from "./telegramBotApi.js";
-import { handleBotMessage, buildClientKeyboard } from "./telegramBotCommands.js";
+import {
+  sendTelegramWelcomeWithWebApp,
+  sendTelegramMessage,
+  editTelegramMessageText,
+  answerCallbackQuery,
+} from "./telegramBotApi.js";
+import {
+  handleBotMessage,
+  handleCallbackQuery,
+  buildWelcome,
+} from "./telegramBotCommands.js";
 import { scheduleAdminOrderDigest } from "./adminOrderDigest.js";
 import { notifyAdminsNewClient } from "./adminNotifyRegistration.js";
 import { startTelegramLongPolling } from "./telegramLongPolling.js";
@@ -727,8 +736,9 @@ app.get("/api/referrals/stats", authRequired, (req, res) => {
 
 /**
  * Общая обработка апдейтов Telegram (webhook и long polling используют её).
- * /start → приветствие + inline-кнопка открытия Mini App + установка постоянной клавиатуры.
- * Остальные команды и кнопки клавиатуры → handleBotMessage.
+ * /start → одно сообщение с inline-меню (Профиль / Заказы / Реферальная / Открыть Concierge).
+ * Нажатия inline-кнопок приходят как callback_query (handleTelegramCallback).
+ * Текстовые команды (/profile, /orders, ...) и старая ReplyKeyboard — через handleBotMessage.
  */
 function handleTelegramUpdate(message) {
   try {
@@ -739,7 +749,7 @@ function handleTelegramUpdate(message) {
     const fromId = msg.from?.id;
     if (!fromId) return;
 
-    // /start — приветствие
+    // /start — приветствие + inline-меню
     if (/^\/start(\s|$)/i.test(text)) {
       const m = /^\/start(?:\s+(.+))?$/i.exec(text);
       const payload = m && m[1] ? String(m[1]).trim() : "";
@@ -756,53 +766,91 @@ function handleTelegramUpdate(message) {
       writeDb(db);
 
       if (TELEGRAM_BOT_TOKEN) {
-        const welcomeHtml =
-          "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
-          "Выкупим, найдем и доставим любой товар под любой случай.\n\n" +
-          "<b>Внутри приложения:</b>\n" +
-          "• личный кабинет клиента\n" +
-          "• отслеживание заказов\n" +
-          "• реферальная программа: баллы за друзей\n\n" +
-          "Откройте приложение, чтобы начать ⬇️";
         const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
-        if (TELEGRAM_BOT_USERNAME || appUrl) {
-          // Сначала welcome с inline-кнопкой «Открыть Concierge»
-          sendTelegramWelcomeWithWebApp(
-            TELEGRAM_BOT_TOKEN,
-            msg.chat.id,
-            welcomeHtml,
-            appUrl,
-            { botUsername: TELEGRAM_BOT_USERNAME }
-          );
-          // Затем устанавливаем постоянную клавиатуру отдельным сообщением
-          sendTelegramMessage(
-            TELEGRAM_BOT_TOKEN,
-            msg.chat.id,
-            "Используйте кнопки ниже для быстрого доступа.",
-            { reply_markup: buildClientKeyboard() }
-          );
-        } else {
-          console.warn(
-            "[concierge] /start: задайте TELEGRAM_BOT_USERNAME (full-screen) или PUBLIC_APP_URL/FRONTEND_ORIGIN (HTTPS) для кнопки Mini App"
-          );
-        }
+        const welcome = buildWelcome(db, fromId, {
+          botUsername: TELEGRAM_BOT_USERNAME,
+          appUrl,
+        });
+        // Одно сообщение с inline-кнопками. Заодно убираем старую ReplyKeyboard
+        // если она ещё висит у клиента с прошлой версии.
+        sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, welcome.text, {
+          reply_markup: welcome.replyMarkup,
+        });
+        // Отдельно (одноразово) шлём микросообщение чтобы убрать ReplyKeyboard.
+        // У большинства клиентов её нет — это no-op. Текст «·» минимальный.
+        sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, "·", {
+          reply_markup: { remove_keyboard: true },
+        });
       }
       return;
     }
 
-    // Команды и кнопки клавиатуры
+    // Текстовые команды или старая ReplyKeyboard
     if (TELEGRAM_BOT_TOKEN) {
       const db = readDb();
+      const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
       const result = handleBotMessage(msg, db, {
         botUsername: TELEGRAM_BOT_USERNAME,
-        appUrl: PUBLIC_APP_URL
+        appUrl,
       });
       if (result) {
-        sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, result.text);
+        // Если пришло нажатие старой ReplyKeyboard — сначала шлём
+        // одноразовое micro-сообщение с remove_keyboard, затем основное.
+        if (result.removeReplyKeyboard) {
+          sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, "·", {
+            reply_markup: { remove_keyboard: true },
+          });
+        }
+        sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, result.text, {
+          reply_markup: result.replyMarkup,
+        });
       }
     }
   } catch (e) {
     console.warn("[concierge] handleTelegramUpdate:", e?.message || e);
+  }
+}
+
+/**
+ * Обработка callback_query от inline-кнопок.
+ * Редактирует то же сообщение через editMessageText — чат не засоряется.
+ */
+function handleTelegramCallback(callbackQuery) {
+  try {
+    if (!callbackQuery?.id) return;
+    const chatId = callbackQuery.message?.chat?.id;
+    const messageId = callbackQuery.message?.message_id;
+    if (!chatId || messageId == null) {
+      // Подтверждаем чтобы у клиента ушёл индикатор загрузки
+      if (TELEGRAM_BOT_TOKEN) {
+        answerCallbackQuery(TELEGRAM_BOT_TOKEN, callbackQuery.id).catch(() => {});
+      }
+      return;
+    }
+
+    if (!TELEGRAM_BOT_TOKEN) return;
+
+    const db = readDb();
+    const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
+    const section = handleCallbackQuery(callbackQuery, db, {
+      botUsername: TELEGRAM_BOT_USERNAME,
+      appUrl,
+    });
+
+    // Подтверждаем callback (убирает индикатор загрузки у клиента)
+    answerCallbackQuery(TELEGRAM_BOT_TOKEN, callbackQuery.id).catch(() => {});
+
+    if (!section) return;
+
+    editTelegramMessageText(
+      TELEGRAM_BOT_TOKEN,
+      chatId,
+      messageId,
+      section.text,
+      { reply_markup: section.replyMarkup }
+    ).catch((e) => console.warn("[concierge] callback edit error:", e?.message || e));
+  } catch (e) {
+    console.warn("[concierge] handleTelegramCallback:", e?.message || e);
   }
 }
 
@@ -817,7 +865,12 @@ app.post("/api/telegram/webhook", (req, res) => {
       return res.status(403).json({ ok: false });
     }
   }
-  handleTelegramUpdate(req.body?.message);
+  const body = req.body || {};
+  if (body.callback_query) {
+    handleTelegramCallback(body.callback_query);
+  } else if (body.message) {
+    handleTelegramUpdate(body.message);
+  }
   res.json({ ok: true });
 });
 
@@ -912,7 +965,11 @@ scheduleAdminOrderDigest(TELEGRAM_BOT_TOKEN);
 
 if (process.env.TELEGRAM_USE_LONG_POLLING === "true" && TELEGRAM_BOT_TOKEN) {
   startTelegramLongPolling(TELEGRAM_BOT_TOKEN, (upd) => {
-    if (upd?.message) handleTelegramUpdate(upd.message);
+    if (upd?.callback_query) {
+      handleTelegramCallback(upd.callback_query);
+    } else if (upd?.message) {
+      handleTelegramUpdate(upd.message);
+    }
   });
   console.log("[concierge] Telegram long polling включён (TELEGRAM_USE_LONG_POLLING=true).");
 }

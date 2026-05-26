@@ -72,7 +72,8 @@ export function startTelegramLongPolling(botToken, onUpdate, opts = {}) {
         const data = await callTelegram(
           botToken,
           "getUpdates",
-          `timeout=${pollTimeout}&offset=${offset}&allowed_updates=%5B%22message%22%5D`
+          // allowed_updates=["message","callback_query"]
+          `timeout=${pollTimeout}&offset=${offset}&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D`
         );
 
         if (data?.ok && Array.isArray(data.result)) {

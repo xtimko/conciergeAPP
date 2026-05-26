@@ -1,32 +1,37 @@
 /**
- * Обработка команд бота и кнопок постоянной клавиатуры.
- * Поддерживает: /profile, /orders, /referral, /help
- * и соответствующие кнопки ReplyKeyboard.
+ * Inline-меню бота.
+ *
+ * Архитектура (как у топовых ботов):
+ * - В ответ на /start или команду — бот показывает одно сообщение-меню
+ *   с inline-кнопками под ним.
+ * - Нажатия на кнопки приходят как `callback_query` — мы РЕДАКТИРУЕМ
+ *   то же сообщение через editMessageText. Чат не засоряется — клиент
+ *   видит одно «живое» меню, которое меняет содержимое.
+ * - Кнопка «Открыть Concierge» — это url-кнопка (t.me/<bot>?startapp),
+ *   она просто открывает Mini App.
+ *
+ * Совместимость со старыми клиентами: если у клиента ещё висит старая
+ * ReplyKeyboard (с прошлой версии бота), при нажатии на её кнопку он
+ * получит обычное сообщение с inline-меню + reply_markup remove_keyboard
+ * чтобы скрыть старую клавиатуру.
  */
 import { escapeHtml, ORDER_STATUS_TITLE_RU } from "./notificationMessages.js";
 
-export const KB_PROFILE  = "◆ Мой профиль";
-export const KB_ORDERS   = "◆ Мои заказы";
-export const KB_REFERRAL = "◆ Реферальная программа";
-export const KB_OPEN_APP = "→ Открыть приложение";
+/** Callback-data для секций меню. */
+export const CB = {
+  MAIN:     "menu:main",
+  PROFILE:  "menu:profile",
+  ORDERS:   "menu:orders",
+  REFERRAL: "menu:referral",
+};
 
-/** ReplyKeyboardMarkup, который остаётся внизу чата у клиента. */
-export function buildClientKeyboard() {
-  return {
-    keyboard: [
-      [KB_PROFILE,  KB_ORDERS],
-      [KB_REFERRAL, KB_OPEN_APP]
-    ],
-    resize_keyboard: true,
-    persistent: true
-  };
-}
+/* ────────────────── ВСПОМОГАТЕЛЬНОЕ ────────────────── */
 
 function formatDate(iso) {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("ru-RU", {
-      day: "2-digit", month: "2-digit", year: "numeric"
+      day: "2-digit", month: "2-digit", year: "numeric",
     });
   } catch {
     return "—";
@@ -37,6 +42,44 @@ function findUserByTelegramId(db, telegramId) {
   const tid = String(telegramId ?? "").trim();
   if (!tid) return null;
   return db.users.find(u => String(u.telegram_id ?? "") === tid) ?? null;
+}
+
+function buildOpenAppButton(botUsername, appUrl) {
+  const u = String(botUsername ?? "").replace(/^@/, "").trim();
+  if (u) return { text: "→ Открыть Concierge", url: `https://t.me/${u}?startapp` };
+  const url = String(appUrl ?? "").trim();
+  if (/^https:\/\//i.test(url)) return { text: "→ Открыть Concierge", url };
+  return null;
+}
+
+/* ────────────────── INLINE-КЛАВИАТУРЫ ────────────────── */
+
+/** Главное меню. */
+export function buildMainMenu(botUsername, appUrl) {
+  const rows = [
+    [{ text: "◆ Профиль",              callback_data: CB.PROFILE  }],
+    [{ text: "◆ Мои заказы",           callback_data: CB.ORDERS   }],
+    [{ text: "◆ Реферальная программа",callback_data: CB.REFERRAL }],
+  ];
+  const openBtn = buildOpenAppButton(botUsername, appUrl);
+  if (openBtn) rows.push([openBtn]);
+  return { inline_keyboard: rows };
+}
+
+/** Подменю: кнопка «← Назад в меню» + «Открыть Concierge». */
+function buildBackMenu(botUsername, appUrl) {
+  const rows = [[{ text: "← Назад в меню", callback_data: CB.MAIN }]];
+  const openBtn = buildOpenAppButton(botUsername, appUrl);
+  if (openBtn) rows.push([openBtn]);
+  return { inline_keyboard: rows };
+}
+
+/* ────────────────── РЕНДЕРЫ КОНТЕНТА ────────────────── */
+
+function renderMainGreeting(user) {
+  const name = user?.first_name || user?.full_name?.split(" ")[0] || "";
+  const greet = name ? `<b>Concierge</b>, ${escapeHtml(name)}` : "<b>Concierge</b>";
+  return `${greet}\n\nВыберите раздел:`;
 }
 
 function renderProfile(user) {
@@ -63,7 +106,6 @@ function renderProfile(user) {
   if (!user.profile_completed) {
     lines.push("", "⚠️ Профиль не заполнен. Откройте приложение, чтобы завершить регистрацию.");
   }
-
   return lines.join("\n");
 }
 
@@ -76,7 +118,7 @@ function formatPrice(order) {
   if (!Number.isFinite(n) || n === 0) return "";
   const fmt = n.toLocaleString("ru-RU");
   const cur = String(order.currency || "RUB").toUpperCase();
-  if (cur === "RUB") return `${fmt} ₽`;
+  if (cur === "RUB") return `${fmt} ₽`;
   if (cur === "USD") return `$${fmt}`;
   if (cur === "EUR") return `€${fmt}`;
   return `${fmt} ${cur}`;
@@ -151,64 +193,124 @@ function renderReferral(user, db, botUsername) {
   return lines.join("\n");
 }
 
+/* ────────────────── ПОСТРОЕНИЕ СЕКЦИИ ────────────────── */
+
 /**
- * Обработать входящее сообщение (не /start).
- * @param {object} message  Telegram message
- * @param {object} db       текущий data.json
- * @param {{ botUsername?: string, appUrl?: string }} opts
- * @returns {{ text: string } | null}
+ * По callback_data строит контент + клавиатуру.
+ * Возвращает { text, replyMarkup } или null если data не наша.
+ * Если пользователь не зарегистрирован — возвращает сообщение об этом.
+ */
+function buildSection(data, db, telegramId, opts) {
+  const { botUsername, appUrl } = opts;
+
+  if (data === CB.MAIN) {
+    const user = findUserByTelegramId(db, telegramId);
+    return {
+      text: renderMainGreeting(user),
+      replyMarkup: buildMainMenu(botUsername, appUrl),
+    };
+  }
+
+  const user = findUserByTelegramId(db, telegramId);
+  if (!user) {
+    return {
+      text: "Вы ещё не зарегистрированы в Concierge.\n\nОткройте приложение, чтобы создать аккаунт.",
+      replyMarkup: buildBackMenu(botUsername, appUrl),
+    };
+  }
+
+  if (data === CB.PROFILE) {
+    return { text: renderProfile(user), replyMarkup: buildBackMenu(botUsername, appUrl) };
+  }
+  if (data === CB.ORDERS) {
+    return { text: renderOrders(user, db), replyMarkup: buildBackMenu(botUsername, appUrl) };
+  }
+  if (data === CB.REFERRAL) {
+    return { text: renderReferral(user, db, botUsername), replyMarkup: buildBackMenu(botUsername, appUrl) };
+  }
+
+  return null;
+}
+
+/* ────────────────── ПУБЛИЧНЫЕ ХЕНДЛЕРЫ ────────────────── */
+
+/**
+ * Главный welcome — для /start. Возвращает { text, replyMarkup }.
+ */
+export function buildWelcome(db, telegramId, opts) {
+  const user = findUserByTelegramId(db, telegramId);
+  const text = user
+    ? renderMainGreeting(user)
+    : "<b>Concierge</b> — премиум-сервис покупок под заказ.\n\n" +
+      "Откройте приложение, чтобы начать. После регистрации это меню покажет ваш профиль и заказы.";
+  return {
+    text,
+    replyMarkup: buildMainMenu(opts.botUsername, opts.appUrl),
+  };
+}
+
+/**
+ * Обработка callback_query от inline-кнопок.
+ * Возвращает { text, replyMarkup } для editMessageText, или null.
+ */
+export function handleCallbackQuery(callbackQuery, db, opts = {}) {
+  const data = String(callbackQuery?.data ?? "").trim();
+  const fromId = callbackQuery?.from?.id;
+  if (!data || !fromId) return null;
+  return buildSection(data, db, fromId, opts);
+}
+
+/* ────────────────── СОВМЕСТИМОСТЬ СО СТАРЫМИ КЛИЕНТАМИ ────────────────── */
+
+/**
+ * Старые тексты кнопок (ReplyKeyboard). У клиентов, которые видели прошлую
+ * версию бота, эта клавиатура может ещё висеть. Если нажмут — отвечаем
+ * новой inline-плашкой + просьбой использовать кнопки под сообщением.
+ */
+const LEGACY_KB_TEXTS = new Set([
+  "◆ Мой профиль",
+  "◆ Мои заказы",
+  "◆ Реферальная программа",
+  "→ Открыть приложение",
+  "👤 Мой профиль",
+  "📦 Мои заказы",
+  "🎁 Реферальная программа",
+  "🚀 Открыть приложение",
+]);
+
+/**
+ * Сообщение от клиента (не /start). Возвращает:
+ *  - { text, replyMarkup, removeReplyKeyboard: true } — для старой ReplyKeyboard
+ *  - { text, replyMarkup } — для команд /profile, /orders, /referral, /help
+ *  - null — игнорируем (любой другой текст не наш)
  */
 export function handleBotMessage(message, db, opts = {}) {
   const raw = (message?.text ?? "").trim();
   if (!raw || !message?.from?.id) return null;
 
-  // Отрезаем @botname суффикс у команд
-  const cmd   = raw.replace(/@\S+/, "").trim();
-  const lower = cmd.toLowerCase();
-
-  const isProfile  = lower === "/profile"  || raw === KB_PROFILE;
-  const isOrders   = lower === "/orders"   || raw === KB_ORDERS;
-  const isReferral = lower === "/referral" || raw === KB_REFERRAL;
-  const isOpenApp  = raw === KB_OPEN_APP;
-  const isHelp     = lower === "/help";
-
-  if (!isProfile && !isOrders && !isReferral && !isOpenApp && !isHelp) return null;
-
-  if (isOpenApp) {
-    const u   = String(opts.botUsername ?? "").trim();
-    const url = u
-      ? `https://t.me/${u}?startapp`
-      : String(opts.appUrl ?? "").trim();
+  // Старая ReplyKeyboard → переводим клиента на новое inline-меню
+  if (LEGACY_KB_TEXTS.has(raw)) {
+    const welcome = buildWelcome(db, message.from.id, opts);
     return {
-      text: url
-        ? `<a href="${escapeHtml(url)}">Открыть Concierge</a>`
-        : "Откройте приложение через меню бота."
+      ...welcome,
+      removeReplyKeyboard: true,
     };
   }
 
-  if (isHelp) {
-    return {
-      text: [
-        "<b>Доступные команды:</b>",
-        "",
-        "/profile — профиль и баллы",
-        "/orders — активные заказы",
-        "/referral — реферальная программа",
-        "/help — это сообщение",
-      ].join("\n")
-    };
+  // Текстовые команды
+  const cmd = raw.replace(/@\S+/, "").trim().toLowerCase();
+  if (cmd === "/profile") {
+    return buildSection(CB.PROFILE, db, message.from.id, opts);
   }
-
-  const user = findUserByTelegramId(db, message.from.id);
-  if (!user) {
-    return {
-      text: "Вы ещё не зарегистрированы в Concierge.\n\nОткройте приложение, чтобы создать аккаунт."
-    };
+  if (cmd === "/orders") {
+    return buildSection(CB.ORDERS, db, message.from.id, opts);
   }
-
-  if (isProfile)  return { text: renderProfile(user) };
-  if (isOrders)   return { text: renderOrders(user, db) };
-  if (isReferral) return { text: renderReferral(user, db, opts.botUsername) };
+  if (cmd === "/referral") {
+    return buildSection(CB.REFERRAL, db, message.from.id, opts);
+  }
+  if (cmd === "/help" || cmd === "/menu") {
+    return buildWelcome(db, message.from.id, opts);
+  }
 
   return null;
 }
