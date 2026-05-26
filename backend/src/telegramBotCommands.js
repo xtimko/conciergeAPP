@@ -220,7 +220,7 @@ function renderReferral(user, db, botUsername) {
   lines.push(
     "",
     `Приглашено друзей: <b>${friendsCount}</b>`,
-    `Заработано от друзей: <b>${bonusFromFriends.toLocaleString("ru-RU")}</b>`,
+    `Получено баллов от друзей: <b>${bonusFromFriends.toLocaleString("ru-RU")}</b>`,
     `Текущий баланс: <b>${balance}</b>`
   );
 
