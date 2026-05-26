@@ -78,8 +78,26 @@ function buildBackMenu(botUsername, appUrl) {
 
 function renderMainGreeting(user) {
   const name = user?.first_name || user?.full_name?.split(" ")[0] || "";
-  const greet = name ? `<b>Concierge</b>, ${escapeHtml(name)}` : "<b>Concierge</b>";
-  return `${greet}\n\nВыберите раздел:`;
+
+  // Зарегистрированный клиент — персональный, краткий, премиальный
+  if (user && name) {
+    return (
+      `<b>Concierge</b>, ${escapeHtml(name)}.\n\n` +
+      "Ваш персональный сервис 24/7.\n" +
+      "Выберите раздел:"
+    );
+  }
+
+  // Не зарегистрирован — большой welcome как раньше
+  return (
+    "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
+    "Выкупим, найдём и доставим любой товар под любой случай.\n\n" +
+    "<b>Внутри приложения:</b>\n" +
+    "• личный кабинет клиента\n" +
+    "• отслеживание заказов\n" +
+    "• реферальная программа: баллы за друзей\n\n" +
+    "Откройте приложение, чтобы начать."
+  );
 }
 
 function renderProfile(user) {

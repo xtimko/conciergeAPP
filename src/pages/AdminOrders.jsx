@@ -336,11 +336,15 @@ export default function AdminOrders() {
   }, []);
 
   /** Закрыть диалог: при нажатии «Отмена» / клавише Esc.
-   *  Если есть несохранённый dirty form — открывается AlertDialog «Сохранить черновик?».
-   *  Если форма пустая или редактирование — закрываем сразу.
+   *  Если есть несохранённый dirty form — закрываем основной Dialog и
+   *  открываем поверх AlertDialog «Сохранить черновик?» (две Radix-модалки
+   *  одновременно конфликтуют по фокусу/scroll-lock, поэтому НЕ держим
+   *  основной Dialog открытым).
+   *  Если форма пустая или режим редактирования — закрываем сразу.
    */
   const handleDialogClose = useCallback(() => {
     if (!editingOrder && isFormDirty(form)) {
+      setDialogOpen(false);
       setClosePrompt(true);
       return;
     }
