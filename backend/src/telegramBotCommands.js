@@ -46,9 +46,9 @@ function findUserByTelegramId(db, telegramId) {
 
 function buildOpenAppButton(botUsername, appUrl) {
   const u = String(botUsername ?? "").replace(/^@/, "").trim();
-  if (u) return { text: "↗ Открыть Concierge", url: `https://t.me/${u}?startapp` };
+  if (u) return { text: "Открыть Concierge", url: `https://t.me/${u}?startapp` };
   const url = String(appUrl ?? "").trim();
-  if (/^https:\/\//i.test(url)) return { text: "↗ Открыть Concierge", url };
+  if (/^https:\/\//i.test(url)) return { text: "Открыть Concierge", url };
   return null;
 }
 
