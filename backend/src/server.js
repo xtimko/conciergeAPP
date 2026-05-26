@@ -771,15 +771,11 @@ function handleTelegramUpdate(message) {
           botUsername: TELEGRAM_BOT_USERNAME,
           appUrl,
         });
-        // Одно сообщение с inline-кнопками. Заодно убираем старую ReplyKeyboard
-        // если она ещё висит у клиента с прошлой версии.
+        // Одно сообщение с inline-кнопками. ReplyKeyboard у новых клиентов нет;
+        // у старых она уберётся естественным образом при первом нажатии (см.
+        // handleBotMessage → removeReplyKeyboard).
         sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, welcome.text, {
           reply_markup: welcome.replyMarkup,
-        });
-        // Отдельно (одноразово) шлём микросообщение чтобы убрать ReplyKeyboard.
-        // У большинства клиентов её нет — это no-op. Текст «·» минимальный.
-        sendTelegramMessage(TELEGRAM_BOT_TOKEN, msg.chat.id, "·", {
-          reply_markup: { remove_keyboard: true },
         });
       }
       return;

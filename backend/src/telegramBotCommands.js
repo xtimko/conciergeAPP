@@ -46,9 +46,9 @@ function findUserByTelegramId(db, telegramId) {
 
 function buildOpenAppButton(botUsername, appUrl) {
   const u = String(botUsername ?? "").replace(/^@/, "").trim();
-  if (u) return { text: "→ Открыть Concierge", url: `https://t.me/${u}?startapp` };
+  if (u) return { text: "↗ Открыть Concierge", url: `https://t.me/${u}?startapp` };
   const url = String(appUrl ?? "").trim();
-  if (/^https:\/\//i.test(url)) return { text: "→ Открыть Concierge", url };
+  if (/^https:\/\//i.test(url)) return { text: "↗ Открыть Concierge", url };
   return null;
 }
 
@@ -57,18 +57,18 @@ function buildOpenAppButton(botUsername, appUrl) {
 /** Главное меню. */
 export function buildMainMenu(botUsername, appUrl) {
   const rows = [
-    [{ text: "◆ Профиль",              callback_data: CB.PROFILE  }],
-    [{ text: "◆ Мои заказы",           callback_data: CB.ORDERS   }],
-    [{ text: "◆ Реферальная программа",callback_data: CB.REFERRAL }],
+    [{ text: "◐ Профиль",               callback_data: CB.PROFILE  }],
+    [{ text: "▤ Мои заказы",            callback_data: CB.ORDERS   }],
+    [{ text: "◇ Реферальная программа", callback_data: CB.REFERRAL }],
   ];
   const openBtn = buildOpenAppButton(botUsername, appUrl);
   if (openBtn) rows.push([openBtn]);
   return { inline_keyboard: rows };
 }
 
-/** Подменю: кнопка «← Назад в меню» + «Открыть Concierge». */
+/** Подменю: кнопка «← Меню» + «Открыть Concierge». */
 function buildBackMenu(botUsername, appUrl) {
-  const rows = [[{ text: "← Назад в меню", callback_data: CB.MAIN }]];
+  const rows = [[{ text: "← Меню", callback_data: CB.MAIN }]];
   const openBtn = buildOpenAppButton(botUsername, appUrl);
   if (openBtn) rows.push([openBtn]);
   return { inline_keyboard: rows };
@@ -79,16 +79,12 @@ function buildBackMenu(botUsername, appUrl) {
 function renderMainGreeting(user) {
   const name = user?.first_name || user?.full_name?.split(" ")[0] || "";
 
-  // Зарегистрированный клиент — персональный, краткий, премиальный
+  // Зарегистрированный — минималистично, как заголовок раздела
   if (user && name) {
-    return (
-      `Здравствуйте, ${escapeHtml(name)}.\n\n` +
-      "<b>Concierge</b> — Ваш персональный сервис 24/7.\n" +
-      "Выберите раздел:"
-    );
+    return "<b>≡ Меню</b>";
   }
 
-  // Не зарегистрирован — большой welcome
+  // Не зарегистрирован — большой welcome (первое впечатление о сервисе)
   return (
     "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
     "Выкупим, найдём и доставим любой товар под любой случай.\n\n" +
@@ -112,7 +108,7 @@ function renderProfile(user) {
   const since   = formatDate(user.created_date);
 
   const lines = [
-    "<b>◆ Профиль</b>",
+    "<b>◐ Профиль</b>",
     "",
     `Имя: <b>${name}</b>`,
     `Город: <b>${city}</b>`,
@@ -154,10 +150,10 @@ function renderOrders(user, db) {
   });
 
   if (!active.length) {
-    return "<b>◆ Заказы</b>\n\nАктивных заказов нет.";
+    return "<b>▤ Мои заказы</b>\n\nАктивных заказов нет.";
   }
 
-  const lines = [`<b>◆ Заказы</b>  <i>(${active.length} активных)</i>`, ""];
+  const lines = [`<b>▤ Мои заказы</b>  <i>(${active.length} активных)</i>`, ""];
 
   for (const o of active.slice(0, 8)) {
     const name  = escapeHtml(String(o.item_name ?? "Заказ").trim());
@@ -207,7 +203,7 @@ function renderReferral(user, db, botUsername) {
   const balance = Number(user.bonus_balance ?? 0).toLocaleString("ru-RU");
 
   const lines = [
-    "<b>◆ Реферальная программа</b>",
+    "<b>◇ Реферальная программа</b>",
     "",
     "Приглашайте друзей — получайте баллы за каждого.",
   ];
