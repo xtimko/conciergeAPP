@@ -82,13 +82,13 @@ function renderMainGreeting(user) {
   // Зарегистрированный клиент — персональный, краткий, премиальный
   if (user && name) {
     return (
-      `<b>Concierge</b>, ${escapeHtml(name)}.\n\n` +
-      "Ваш персональный сервис 24/7.\n" +
+      `Здравствуйте, ${escapeHtml(name)}.\n\n` +
+      "<b>Concierge</b> — Ваш персональный сервис 24/7.\n" +
       "Выберите раздел:"
     );
   }
 
-  // Не зарегистрирован — большой welcome как раньше
+  // Не зарегистрирован — большой welcome
   return (
     "<b>Concierge</b> — Ваш персональный сервис 24/7\n\n" +
     "Выкупим, найдём и доставим любой товар под любой случай.\n\n" +
@@ -185,10 +185,25 @@ function renderReferral(user, db, botUsername) {
     ? `https://t.me/${botUsername}?start=ref_${token}`
     : null;
 
-  const uid          = String(user.id ?? "").trim();
-  const friendsCount = uid
-    ? (db.users ?? []).filter(u => String(u.referred_by ?? "") === uid).length
+  // Та же логика что в /api/referrals/stats — по email клиента, не по id.
+  // В data.json поле `referred_by` хранит EMAIL пригласившего.
+  const myEmail = String(user.email ?? "").trim();
+  const invites = myEmail
+    ? (db.users ?? []).filter((u) => String(u.referred_by ?? "") === myEmail)
+    : [];
+  const friendsCount = invites.length;
+
+  // Баллы заработанные от друзей: сумма referrer_bonus по доставленным заказам,
+  // где referrer_email = email текущего пользователя.
+  const bonusFromFriends = myEmail
+    ? (db.orders ?? [])
+        .filter((o) =>
+          o.status === "delivered" &&
+          String(o.referrer_email ?? "") === myEmail
+        )
+        .reduce((s, o) => s + Number(o.referrer_bonus || 0), 0)
     : 0;
+
   const balance = Number(user.bonus_balance ?? 0).toLocaleString("ru-RU");
 
   const lines = [
@@ -205,7 +220,8 @@ function renderReferral(user, db, botUsername) {
   lines.push(
     "",
     `Приглашено друзей: <b>${friendsCount}</b>`,
-    `Баллы: <b>${balance}</b>`
+    `Заработано от друзей: <b>${bonusFromFriends.toLocaleString("ru-RU")}</b>`,
+    `Текущий баланс: <b>${balance}</b>`
   );
 
   return lines.join("\n");

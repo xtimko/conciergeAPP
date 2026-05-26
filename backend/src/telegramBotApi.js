@@ -141,12 +141,21 @@ async function sendTelegramPhotoMultipart(botToken, chatId, buffer, filename, ca
   }
 }
 
-/** Inline-кнопка «Открыть Concierge» в full-screen (как Menu Button). Нужен TELEGRAM_BOT_USERNAME. */
+/**
+ * Inline-кнопки в уведомлениях о заказе:
+ *  - «Открыть Concierge» — url на Mini App в full-screen
+ *  - «Меню» — callback `nav:menu`, бот пришлёт ОТДЕЛЬНОЕ сообщение
+ *    с inline-меню (профиль / заказы / реферальная) и не тронет карточку.
+ * Нужен TELEGRAM_BOT_USERNAME.
+ */
 function buildOpenConciergeReplyMarkup() {
   const u = String(process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "").trim();
   if (!u) return null;
   return {
-    inline_keyboard: [[{ text: "Открыть Concierge", url: `https://t.me/${u}?startapp` }]]
+    inline_keyboard: [
+      [{ text: "Открыть Concierge", url: `https://t.me/${u}?startapp` }],
+      [{ text: "Меню", callback_data: "nav:menu" }],
+    ]
   };
 }
 

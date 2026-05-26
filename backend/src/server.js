@@ -813,33 +813,44 @@ function handleTelegramUpdate(message) {
 
 /**
  * Обработка callback_query от inline-кнопок.
- * Редактирует то же сообщение через editMessageText — чат не засоряется.
+ *
+ * Поведение:
+ *  - `menu:*` (главное меню и его разделы) — РЕДАКТИРУЕМ то же сообщение
+ *    через editMessageText, чат не засоряется.
+ *  - `nav:menu` (из карточек заказов, ботных уведомлений) — шлём НОВОЕ
+ *    сообщение с меню, чтобы не затирать карточку заказа.
  */
 function handleTelegramCallback(callbackQuery) {
   try {
     if (!callbackQuery?.id) return;
     const chatId = callbackQuery.message?.chat?.id;
     const messageId = callbackQuery.message?.message_id;
-    if (!chatId || messageId == null) {
-      // Подтверждаем чтобы у клиента ушёл индикатор загрузки
-      if (TELEGRAM_BOT_TOKEN) {
-        answerCallbackQuery(TELEGRAM_BOT_TOKEN, callbackQuery.id).catch(() => {});
-      }
-      return;
-    }
+    const data = String(callbackQuery?.data ?? "").trim();
+    const fromId = callbackQuery?.from?.id;
 
     if (!TELEGRAM_BOT_TOKEN) return;
 
-    const db = readDb();
-    const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
-    const section = handleCallbackQuery(callbackQuery, db, {
-      botUsername: TELEGRAM_BOT_USERNAME,
-      appUrl,
-    });
-
-    // Подтверждаем callback (убирает индикатор загрузки у клиента)
+    // В любом случае убираем индикатор загрузки у клиента
     answerCallbackQuery(TELEGRAM_BOT_TOKEN, callbackQuery.id).catch(() => {});
 
+    if (!chatId || !fromId) return;
+
+    const db = readDb();
+    const appUrl = PUBLIC_APP_URL && /^https:\/\//i.test(PUBLIC_APP_URL) ? PUBLIC_APP_URL : "";
+    const opts = { botUsername: TELEGRAM_BOT_USERNAME, appUrl };
+
+    // «Меню» из карточки заказа → новое сообщение, не трогаем карточку
+    if (data === "nav:menu") {
+      const welcome = buildWelcome(db, fromId, opts);
+      sendTelegramMessage(TELEGRAM_BOT_TOKEN, chatId, welcome.text, {
+        reply_markup: welcome.replyMarkup,
+      }).catch((e) => console.warn("[concierge] nav:menu send error:", e?.message || e));
+      return;
+    }
+
+    // Остальные menu:* — редактирование того же сообщения-меню
+    if (messageId == null) return;
+    const section = handleCallbackQuery(callbackQuery, db, opts);
     if (!section) return;
 
     editTelegramMessageText(
