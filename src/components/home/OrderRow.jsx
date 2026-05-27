@@ -5,6 +5,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { getStatusLabel } from '@/lib/i18n';
 import { getOrderEtaHint } from '@/lib/orderEta';
 import { cn } from '@/lib/utils';
+import { proxyImageUrl } from '@/lib/imageProxy';
 
 /**
  * Premium order row.
@@ -61,11 +62,12 @@ export default function OrderRow({ order, onClick }) {
         >
           {order.image_url ? (
             <img
-              src={order.image_url}
+              src={proxyImageUrl(order.image_url)}
               alt=""
               className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg"
               draggable={false}
               loading="lazy"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           ) : (
             <Package

@@ -9,6 +9,19 @@
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { getStatusLabel } from '@/lib/i18n';
 import { api } from '@/api/client';
+import { proxyImageUrl } from '@/lib/imageProxy';
+
+/** Полный URL прокси (с origin) — для HTML открываемого вне Mini App. */
+function absoluteProxyUrl(url) {
+  const proxied = proxyImageUrl(url);
+  if (!proxied || proxied.startsWith('data:')) return proxied;
+  if (/^https?:\/\//i.test(proxied)) return proxied;
+  // относительный путь → абсолютный
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${proxied.startsWith('/') ? '' : '/'}${proxied}`;
+  }
+  return proxied;
+}
 
 function isInTelegramMiniApp() {
   return typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
@@ -58,8 +71,9 @@ export function buildOrdersHtml(orders, meta = {}) {
 
   const rows = orders.map((o) => {
     const img = String(o.image_url || '').trim();
-    const imgCell = img && !img.startsWith('data:')
-      ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">`
+    const proxied = img && !img.startsWith('data:') ? absoluteProxyUrl(img) : '';
+    const imgCell = proxied
+      ? `<img src="${escapeHtml(proxied)}" alt="" loading="lazy">`
       : '<div class="no-photo">—</div>';
     const link = img && !img.startsWith('data:')
       ? `<a href="${escapeHtml(img)}" target="_blank" rel="noopener">фото</a>`

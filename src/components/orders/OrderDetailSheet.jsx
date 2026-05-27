@@ -16,6 +16,7 @@ import { hapticSuccess, hapticError, hapticImpact } from '@/lib/telegramHaptics'
 import { toast } from 'sonner';
 import { formatOrderEtaClientLine } from '@/lib/estimatedDelivery';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
+import { proxyImageUrl } from '@/lib/imageProxy';
 
 function formatDate(iso, locale) {
   if (!iso) return null;
@@ -199,7 +200,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
               >
                 <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden lg-subtle flex items-center justify-center p-3">
                   <img
-                    src={order.image_url}
+                    src={proxyImageUrl(order.image_url)}
                     alt=""
                     className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
                     draggable={false}
@@ -293,7 +294,7 @@ export default function OrderDetailSheet({ order, open, onClose, readOnly }) {
               className="relative z-[1] flex flex-col items-center justify-center gap-3 max-w-full max-h-[min(92dvh,100%)] pointer-events-none"
             >
               <img
-                src={lightboxUrl}
+                src={proxyImageUrl(lightboxUrl)}
                 alt=""
                 className={`pointer-events-auto max-w-full max-h-[min(72dvh,78vw)] w-auto object-contain rounded-lg shadow-2xl transition-all duration-300 ease-out ${
                   lightboxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.94]'

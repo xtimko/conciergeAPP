@@ -39,7 +39,19 @@ async function fetchImageForTelegramUpload(imageUrl, maxBytes = MAX_TELEGRAM_PHO
   if (dispatcher) attempts.push({ dispatcher, label: "proxy" });
   attempts.push({ dispatcher: null, label: "direct" });
 
+  // Многие хостинги (Pinterest, StockX, Telegram CDN и пр.) проверяют Referer.
+  // Сначала пробуем с Referer = origin картинки, затем без него.
+  let originReferer = "";
+  try {
+    const u = new URL(raw);
+    originReferer = `${u.protocol}//${u.host}/`;
+  } catch { /* noop */ }
+
+  const refererVariants = originReferer ? [originReferer, ""] : [""];
+
   for (const { dispatcher: d, label } of attempts) {
+    let success = null;
+    for (const referer of refererVariants) {
     try {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 45_000);
@@ -49,7 +61,8 @@ async function fetchImageForTelegramUpload(imageUrl, maxBytes = MAX_TELEGRAM_PHO
         signal: ac.signal,
         headers: {
           Accept: "image/*,*/*;q=0.8",
-          "User-Agent": "ConciergeBackend/1.0"
+          "User-Agent": "Mozilla/5.0 (compatible; ConciergeBackend/1.0)",
+          ...(referer ? { Referer: referer } : {})
         },
         ...(d ? { dispatcher: d } : {})
       });
@@ -74,10 +87,13 @@ async function fetchImageForTelegramUpload(imageUrl, maxBytes = MAX_TELEGRAM_PHO
         else if (buf.length >= 12 && buf[0] === 0x52 && buf[1] === 0x49) ct = "image/webp";
         else ct = "image/jpeg";
       }
-      return { buffer: buf, contentType: ct };
+      success = { buffer: buf, contentType: ct };
+      break;
     } catch (e) {
-      console.warn(`[telegramBotApi] fetch image (${label}):`, e?.message || e);
+      console.warn(`[telegramBotApi] fetch image (${label}/${referer ? "ref" : "no-ref"}):`, e?.message || e);
     }
+    }
+    if (success) return success;
   }
   return null;
 }
