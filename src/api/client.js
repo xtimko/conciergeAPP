@@ -131,6 +131,34 @@ export const api = {
     async referralsStats() {
       return request("/referrals/stats");
     },
+    /** Отправить файл через бота в чат с админом. content — Blob или string. */
+    async shareDocumentViaBot({ filename, content, mime, caption }) {
+      let base64;
+      if (typeof content === 'string') {
+        // строка → base64 через TextEncoder
+        const bytes = new TextEncoder().encode(content);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+        base64 = btoa(bin);
+      } else if (content instanceof Blob) {
+        const buf = await content.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+        base64 = btoa(bin);
+      } else {
+        throw new Error('content must be string or Blob');
+      }
+      return request("/admin/share-document", {
+        method: "POST",
+        body: JSON.stringify({
+          filename,
+          content_base64: base64,
+          mime: mime || 'application/octet-stream',
+          caption: caption || '',
+        }),
+      });
+    },
     logout() {
       clearToken();
       window.location.reload();

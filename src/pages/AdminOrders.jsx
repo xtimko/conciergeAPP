@@ -299,15 +299,15 @@ export default function AdminOrders() {
     const result = await exportOrdersHtml(pool, { title, clientName });
     setExportSheetOpen(false);
 
-    if (result === 'share') {
+    if (result === 'bot') {
       hapticSuccess();
-      toast.success('Откройте «Поделиться» и сохраните файл');
+      toast.success('Файл отправлен в чат с ботом — пересылайте куда нужно');
     } else if (result === 'download') {
       hapticSuccess();
       toast.success(`Скачана таблица (${pool.length} ${pool.length === 1 ? 'заказ' : 'заказов'})`);
     } else {
       hapticError();
-      toast.error('Не удалось выгрузить — попробуйте в другом браузере');
+      toast.error('Не удалось выгрузить файл');
     }
   };
 
@@ -318,18 +318,18 @@ export default function AdminOrders() {
     }
     const fn = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
     const result = await exportOrdersCsv(displayedOrders, fn);
-    if (result === 'share') {
+    if (result === 'bot') {
       hapticSuccess();
-      toast.success('Откройте меню «Поделиться» и сохраните файл');
+      toast.success('CSV отправлен в чат с ботом — пересылайте куда нужно');
     } else if (result === 'download') {
       hapticSuccess();
       toast.success('Файл скачан');
     } else if (result === 'clipboard') {
       hapticSuccess();
-      toast.success('CSV скопирован — вставьте в Numbers/Excel или в заметки и сохраните');
+      toast.success('CSV скопирован — вставьте в Numbers/Excel или в заметки');
     } else {
       hapticError();
-      toast.error('Не удалось выгрузить — попробуйте в другом браузере');
+      toast.error('Не удалось выгрузить файл');
     }
   };
 

@@ -8,6 +8,11 @@
  */
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
 import { getStatusLabel } from '@/lib/i18n';
+import { api } from '@/api/client';
+
+function isInTelegramMiniApp() {
+  return typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
+}
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -195,7 +200,9 @@ export function buildOrdersHtml(orders, meta = {}) {
 
 /**
  * Скачать HTML-таблицу как файл.
- * @returns {'share' | 'download' | 'fail'}
+ * В Telegram Mini App файл идёт через бота (sendDocument) → реально приходит
+ * в чат с ботом, оттуда можно пересылать.
+ * @returns {'bot' | 'download' | 'fail'}
  */
 export async function exportOrdersHtml(orders, meta = {}) {
   if (!orders) return 'fail';
@@ -207,19 +214,25 @@ export async function exportOrdersHtml(orders, meta = {}) {
     : 'all';
   const filename = `orders-${slug}-${ts}.html`;
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
-  const file = new File([blob], filename, { type: 'text/html', lastModified: Date.now() });
-
-  if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare?.({ files: [file] })) {
+  // Telegram Mini App → через бота
+  if (isInTelegramMiniApp()) {
     try {
-      await navigator.share({ files: [file], title: meta.title || 'Заказы' });
-      return 'share';
+      await api.auth.shareDocumentViaBot({
+        filename,
+        content: html,
+        mime: 'text/html',
+        caption: meta.title || 'Заказы',
+      });
+      return 'bot';
     } catch (e) {
-      if (e?.name === 'AbortError') return 'fail';
+      console.warn('[exportHtml] bot share failed:', e?.message || e);
+      // упадём в обычный путь ниже
     }
   }
 
+  // Обычное скачивание
   try {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

@@ -307,6 +307,60 @@ export async function editTelegramMessageCaption(botToken, chatId, messageId, ca
 }
 
 /**
+ * Отправить документ (файл) в чат через Bot API sendDocument (multipart).
+ * Используется когда фронт в Telegram Mini App не может надёжно скачать blob —
+ * мы получаем содержимое на сервер и шлём в чат клиента, оттуда он
+ * пересылает в избранное / контактам.
+ *
+ * @param {string} botToken
+ * @param {string|number} chatId
+ * @param {Buffer} buffer
+ * @param {string} filename
+ * @param {{ caption?: string, mime?: string }} [opts]
+ * @returns {Promise<number|null>} message_id или null
+ */
+export async function sendTelegramDocument(botToken, chatId, buffer, filename, opts = {}) {
+  if (!botToken || !chatId || !buffer?.length || !filename) return null;
+  const id = String(chatId).trim();
+  if (!id) return null;
+  const url = `https://api.telegram.org/bot${botToken}/sendDocument`;
+  const dispatcher = getTelegramProxyDispatcher();
+  const form = new FormData();
+  form.set("chat_id", id);
+  if (opts.caption) {
+    form.set("caption", String(opts.caption).slice(0, 1024));
+    form.set("parse_mode", "HTML");
+  }
+  const mime = String(opts.mime || "application/octet-stream");
+  form.append("document", new Blob([buffer], { type: mime }), filename);
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 120_000);
+    const res = await undiciFetch(url, {
+      method: "POST",
+      body: form,
+      signal: ac.signal,
+      ...(dispatcher ? { dispatcher } : {}),
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!data?.ok) {
+      console.warn(
+        "[telegramBotApi] sendDocument failed:",
+        res.status,
+        data?.error_code,
+        data?.description || JSON.stringify(data),
+      );
+      return null;
+    }
+    return data.result?.message_id ?? null;
+  } catch (e) {
+    console.warn("[telegramBotApi] sendDocument error:", e?.message || e);
+    return null;
+  }
+}
+
+/**
  * Подтвердить callback_query от inline-кнопки — Telegram уберёт «загрузка» индикатор у клиента.
  * Можно показать всплывающий тост через `text` (короткий). Если text не задан — просто закрыть индикатор.
  * @returns {Promise<boolean>}

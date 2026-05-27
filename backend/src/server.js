@@ -21,6 +21,7 @@ import {
   sendTelegramMessage,
   editTelegramMessageText,
   answerCallbackQuery,
+  sendTelegramDocument,
 } from "./telegramBotApi.js";
 import {
   handleBotMessage,
@@ -713,6 +714,59 @@ app.delete("/api/orders/:id", authRequired, adminRequired, (req, res) => {
   writeDb(db);
 
   res.json({ ok: true });
+});
+
+/**
+ * Поделиться файлом через бота: фронт в Telegram Mini App не может
+ * нормально скачать blob — пересылаем содержимое сюда, бот шлёт файл
+ * в чат админа. Дальше клиент пересылает в избранное / контактам.
+ */
+app.post("/api/admin/share-document", authRequired, adminRequired, async (req, res) => {
+  if (!TELEGRAM_BOT_TOKEN) {
+    return res.status(503).json({ message: "Telegram bot не настроен (TELEGRAM_BOT_TOKEN)" });
+  }
+  const body = req.body || {};
+  const filename = String(body.filename || "").trim();
+  const contentBase64 = String(body.content_base64 || "").trim();
+  const mime = String(body.mime || "application/octet-stream").trim();
+  const caption = body.caption ? String(body.caption).slice(0, 1024) : "";
+
+  if (!filename || !contentBase64) {
+    return res.status(400).json({ message: "filename и content_base64 обязательны" });
+  }
+  if (filename.length > 200) {
+    return res.status(400).json({ message: "filename слишком длинный" });
+  }
+  // Ограничиваем размер: 8 МБ base64 ≈ 6 МБ binary
+  if (contentBase64.length > 8 * 1024 * 1024) {
+    return res.status(413).json({ message: "Файл слишком большой (макс. ~6 МБ)" });
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(contentBase64, "base64");
+  } catch {
+    return res.status(400).json({ message: "Не удалось декодировать base64" });
+  }
+  if (!buffer.length) {
+    return res.status(400).json({ message: "Пустой файл" });
+  }
+
+  const db = readDb();
+  const me = db.users.find((u) => u.id === req.auth.userId);
+  const chatId = String(me?.telegram_id || "").trim();
+  if (!chatId) {
+    return res.status(400).json({ message: "Нет telegram_id у админа — некуда отправлять файл" });
+  }
+
+  const msgId = await sendTelegramDocument(TELEGRAM_BOT_TOKEN, chatId, buffer, filename, {
+    mime,
+    caption,
+  });
+  if (!msgId) {
+    return res.status(502).json({ message: "Telegram не принял документ" });
+  }
+  res.json({ ok: true, message_id: msgId });
 });
 
 app.get("/api/referrals/stats", authRequired, (req, res) => {

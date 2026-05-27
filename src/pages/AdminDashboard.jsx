@@ -171,17 +171,28 @@ export default function AdminDashboard() {
               const isDelivered = order.status === 'delivered';
               const isActive = !FINISHED.has(order.status);
               const profitVal = (isDelivered || isActive) ? Math.round(orderProfitRub(order)) : null;
-              const profitClass = isDelivered
-                ? 'text-emerald-500/90'
-                : 'text-rose-400/85';
+              const profitClass = isDelivered ? 'text-emerald-500/90' : 'text-rose-400/85';
               const profitSign = isDelivered ? '+' : '~';
               const size = String(order.item_size || '').trim();
+
+              const priceNum = Number(order.price ?? 0);
+              const priceStr = Number.isFinite(priceNum) && priceNum > 0
+                ? (() => {
+                    const fmt = priceNum.toLocaleString('ru-RU');
+                    const cur = String(order.currency || 'RUB').toUpperCase();
+                    if (cur === 'RUB') return `${fmt} ₽`;
+                    if (cur === 'USD') return `$${fmt}`;
+                    if (cur === 'EUR') return `€${fmt}`;
+                    return `${fmt} ${cur}`;
+                  })()
+                : null;
+
               return (
                 <button
                   key={order.id}
                   type="button"
                   onClick={() => setSelectedOrder(order)}
-                  className="w-full flex items-center justify-between gap-2 py-2.5 border-b border-border/10 last:border-0 text-left transition-all active:scale-[0.99] hover:bg-foreground/[0.03] rounded-lg px-2 -mx-2"
+                  className="w-full flex items-center justify-between gap-3 py-2.5 border-b border-border/10 last:border-0 text-left transition-all active:scale-[0.99] hover:bg-foreground/[0.03] rounded-lg px-2 -mx-2"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] text-muted-foreground/90 font-mono truncate mb-0.5 lg-number">
@@ -197,14 +208,25 @@ export default function AdminDashboard() {
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{subLine}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground text-right shrink-0 whitespace-nowrap">
-                    {getStatusLabel(order.status, 'ru')}
+                  <div className="flex flex-col items-end shrink-0 whitespace-nowrap gap-0.5">
+                    {/* Верхняя строка: цена · статус */}
+                    <span className="text-xs flex items-center gap-1.5">
+                      {priceStr && (
+                        <span className="text-foreground/95 tabular-nums lg-number font-light">
+                          {priceStr}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">
+                        {getStatusLabel(order.status, 'ru')}
+                      </span>
+                    </span>
+                    {/* Нижняя строка: прибыль */}
                     {profitVal != null && profitVal !== 0 ? (
-                      <span className={`${profitClass} font-medium tabular-nums ml-1.5 lg-number`}>
+                      <span className={`${profitClass} text-[11px] font-medium tabular-nums lg-number`}>
                         {profitSign}{Math.abs(profitVal).toLocaleString('ru-RU')}
                       </span>
                     ) : null}
-                  </span>
+                  </div>
                 </button>
               );
             })}

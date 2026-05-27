@@ -1,4 +1,10 @@
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
+import { api } from '@/api/client';
+
+/** В Telegram Mini App? */
+function isInTelegramMiniApp() {
+  return typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
+}
 
 /** Экранирование поля для CSV (RFC-совместимо для Excel). */
 function escapeCell(val) {
@@ -46,30 +52,32 @@ function buildCsvString(orders) {
 }
 
 /**
- * Экспорт готовой CSV-строки (с BOM): «Поделиться», скачать или буфер.
- * @returns {'share'|'download'|'clipboard'|'fail'}
+ * Экспорт готовой CSV-строки (с BOM):
+ *  - в Telegram Mini App → через бота (sendDocument) — файл приходит в чат с ботом, оттуда пересылается
+ *  - в браузере → стандартное скачивание / clipboard как fallback
+ * @returns {'bot'|'share'|'download'|'clipboard'|'fail'}
  */
 export async function exportCsvString(csv, filename = 'export.csv') {
   if (csv == null || csv === '') return 'fail';
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const file = new File([blob], filename, {
-    type: 'text/csv',
-    lastModified: Date.now(),
-  });
-
-  if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare?.({ files: [file] })) {
+  // 1) В Telegram Mini App — через бота (надёжный путь, файл реально приходит)
+  if (isInTelegramMiniApp()) {
     try {
-      await navigator.share({
-        files: [file],
-        title: filename,
+      await api.auth.shareDocumentViaBot({
+        filename,
+        content: csv,
+        mime: 'text/csv',
       });
-      return 'share';
+      return 'bot';
     } catch (e) {
-      if (e?.name === 'AbortError') return 'fail';
+      console.warn('[exportCsv] bot share failed:', e?.message || e);
+      // упадём в обычный путь ниже
     }
   }
 
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+  // 2) Обычное скачивание (десктоп / мобильный браузер)
   try {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -86,6 +94,7 @@ export async function exportCsvString(csv, filename = 'export.csv') {
     /* continue */
   }
 
+  // 3) Last resort — буфер обмена
   try {
     await navigator.clipboard.writeText(csv);
     return 'clipboard';
