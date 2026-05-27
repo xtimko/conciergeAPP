@@ -6,15 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw, Trash2, Zap, LayoutList } from 'lucide-react';
+import { Plus, Search, Pencil, Copy, Check, ListChecks, CheckCircle2, Download, ListTodo, RotateCcw, Trash2, Zap, LayoutList, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusLabel } from '@/lib/i18n';
 import ClientEmailAutocomplete from '@/components/admin/ClientEmailAutocomplete';
 import ImageUploadField from '@/components/admin/ImageUploadField';
 import { exportOrdersCsv } from '@/lib/exportOrdersCsv';
+import { exportOrdersHtml } from '@/lib/exportOrdersHtml';
 import { normalizeEstimatedDaysInput } from '@/lib/estimatedDelivery';
 import { getClientEmailForOrder } from '@/lib/clientDisplay';
 import { formatOrderDisplayId } from '@/lib/orderDisplay';
@@ -259,6 +260,54 @@ export default function AdminOrders() {
     } catch {
       hapticError();
       toast.error('Не удалось скопировать');
+    }
+  };
+
+  /** Состояние диалога экспорта HTML-таблицы. */
+  const [exportSheetOpen, setExportSheetOpen] = useState(false);
+  const [exportClientId, setExportClientId] = useState('all');
+  const [exportFilter, setExportFilter] = useState('active'); // active | delivered | all
+
+  const handleExportHtml = async () => {
+    // Определяем какие заказы экспортировать
+    const ACTIVE = new Set(['pending', 'confirmed', 'sourcing', 'shipping', 'awaiting_pickup']);
+    let pool = orders;
+    let clientName = '';
+    if (exportClientId !== 'all') {
+      const c = clients.find((cc) => cc.id === exportClientId);
+      if (c) {
+        const email = c.email;
+        pool = orders.filter((o) => o.client_email === email);
+        clientName = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || c.email;
+      }
+    }
+    if (exportFilter === 'active') pool = pool.filter((o) => ACTIVE.has(o.status));
+    else if (exportFilter === 'delivered') pool = pool.filter((o) => o.status === 'delivered');
+
+    if (!pool.length) {
+      hapticError();
+      toast.error('Нет заказов для экспорта по выбранным фильтрам');
+      return;
+    }
+
+    const title = clientName
+      ? `Заказы — ${clientName}`
+      : exportFilter === 'active' ? 'Активные заказы Concierge'
+      : exportFilter === 'delivered' ? 'Доставленные заказы Concierge'
+      : 'Все заказы Concierge';
+
+    const result = await exportOrdersHtml(pool, { title, clientName });
+    setExportSheetOpen(false);
+
+    if (result === 'share') {
+      hapticSuccess();
+      toast.success('Откройте «Поделиться» и сохраните файл');
+    } else if (result === 'download') {
+      hapticSuccess();
+      toast.success(`Скачана таблица (${pool.length} ${pool.length === 1 ? 'заказ' : 'заказов'})`);
+    } else {
+      hapticError();
+      toast.error('Не удалось выгрузить — попробуйте в другом браузере');
     }
   };
 
@@ -650,6 +699,16 @@ export default function AdminOrders() {
           title="Экспорт CSV"
         >
           <Download className="w-4 h-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setExportSheetOpen(true)}
+          className="glass border-border/30 shrink-0 h-10 px-3"
+          title="Экспорт таблицы с фото"
+        >
+          <FileText className="w-4 h-4" />
         </Button>
         <Button
           type="button"
@@ -1447,6 +1506,91 @@ export default function AdminOrders() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={exportSheetOpen} onOpenChange={setExportSheetOpen}>
+        <DialogContent className="border-border/60 bg-background max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Экспорт таблицы заказов</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Сохраняется HTML-файл с фото, размером, статусом и ссылками.
+              Откройте в браузере — можно распечатать или «Сохранить как PDF».
+            </p>
+
+            <div>
+              <Label className="text-xs">Клиент</Label>
+              <Select value={exportClientId} onValueChange={setExportClientId}>
+                <SelectTrigger className="mt-1 bg-transparent border-border/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все клиенты</SelectItem>
+                  {[...clients]
+                    .filter((c) => c.role !== 'admin')
+                    .sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''))
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {[c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || c.email}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-2 block">Какие заказы</Label>
+              <div className="flex rounded-lg border border-border/30 overflow-hidden">
+                <button
+                  type="button"
+                  className={`flex-1 px-3 py-2 text-xs ${
+                    exportFilter === 'active' ? 'bg-foreground text-background' : 'glass'
+                  }`}
+                  onClick={() => setExportFilter('active')}
+                >
+                  Активные
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 px-3 py-2 text-xs ${
+                    exportFilter === 'delivered' ? 'bg-foreground text-background' : 'glass'
+                  }`}
+                  onClick={() => setExportFilter('delivered')}
+                >
+                  Доставленные
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 px-3 py-2 text-xs ${
+                    exportFilter === 'all' ? 'bg-foreground text-background' : 'glass'
+                  }`}
+                  onClick={() => setExportFilter('all')}
+                >
+                  Все
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-row gap-2 sm:flex-row sm:justify-end mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setExportSheetOpen(false)}
+              className="glass border-border/30"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              onClick={handleExportHtml}
+              className="bg-foreground text-background hover:bg-foreground/90"
+            >
+              Экспортировать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent className="border-border/60 bg-background">
